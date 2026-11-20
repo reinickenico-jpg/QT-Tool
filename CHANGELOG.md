@@ -6,6 +6,14 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 ## [Unveröffentlicht]
 
 ### Neu
+- **Vorher/Nachher** (`qt_tool/vergleich.py`): zweites Upload-Feld für den Kurztest OUT (nach dem Flashen).
+  Je Steuergerät: aktualisiert / Hardware getauscht / unverändert / neu / fehlt, alte und neue Software-Stände,
+  Status vorher → nachher und Ergebnis (Ziel erreicht, noch nicht neuester Stand, Update nicht durchgeführt,
+  prüfen). Update-Protokoll als HTML (als PDF druckbar) und Excel; Warnung bei verschiedenen Fahrzeugen.
+  Umschalter, ob der Abgleich für IN oder OUT angezeigt wird.
+- **Datenpakete als Hinweis:** SW-Sachnummern, die in der Konfiguration nur in Abschnitten ohne Hardware stehen
+  (z. B. CIVIC-Betriebsanleitung, Carline-Bilder, Sound-/Navi-Daten – baureihenspezifisch), werden nicht mehr
+  bewertet, sondern als Hinweis angezeigt (Spalte „Hinweise (Datenpakete)“, Detailansicht, Bericht).
 - **Analysebericht je Fahrzeug** (`qt_tool/bericht.py`): eigenständige HTML-Datei mit Fahrzeugdaten,
   Release-Konfiguration/Linie, Zusammenfassung, Handlungsbedarf mit Empfehlung und Begründung, aktuellen und
   nicht zugeordneten Steuergeräten; im Browser als PDF druckbar (A4), hell/dunkel, ohne Internet.
