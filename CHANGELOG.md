@@ -5,6 +5,20 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 
 ## [Unveröffentlicht]
 
+### Behoben
+- **Release-Konfigurationen wurden nicht geladen**, wenn während des Einlesens (bis 15 s) schon die nächste Datei
+  hineingezogen wurde: Das Einlesen wurde abgebrochen, die Datei aber als erledigt markiert – ohne Meldung. Eine
+  Datei gilt jetzt erst nach vollständigem Einlesen als erledigt.
+- **Falsche Architektur:** Wurde zuerst nur eine Konfiguration geladen, blieb deren Architektur ausgewählt, auch
+  wenn später die passende dazukam. Die Erkennung läuft jetzt neu, sobald sich die geladenen Konfigurationen ändern.
+
+### Geändert
+- **Ein Upload-Feld für alle Release-Konfigurationen:** alle drei auf einmal oder einzeln hineinziehen, die
+  Architektur wird je Datei erkannt; ist sie nicht erkennbar, fragt das Tool nach. Statuskarte je Architektur.
+- **Knopf „Abgleich starten“:** die Auswertung beginnt erst nach dem Klick.
+- **IN und OUT von verschiedenen Fahrzeugen:** Fehlermeldung mit beiden VINs direkt unter den Upload-Feldern,
+  Vorher/Nachher wird nicht ausgewertet.
+
 ## [0.1.0] – 2026-11-20
 
 Erste Version: Abgleich von Fahrzeug-Kurztests mit den Release-Konfigurationen G20i2, MB.OS_0.7 und MB.OS1.0.

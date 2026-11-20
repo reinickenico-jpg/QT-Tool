@@ -143,56 +143,80 @@ def bereich_kurztest(titel: str, schluessel: str, leer: str) -> Kurztest | None:
     return kurztest
 
 
-def _konfig_verarbeiten(arch: str, inhalt: bytes, dateiname: str) -> str | None:
-    """Liest und speichert eine Release-Konfiguration. Rückgabe: Fehlermeldung oder ``None``."""
-    if dateiname.lower().endswith(".xls"):
-        return "Das alte Excel-Format .xls wird nicht unterstützt. Bitte in Excel als .xlsx speichern."
-    zuordnung = speicher.lade_zuordnungen().get(arch)
-    with st.spinner(f"Lese {dateiname} … (große Dateien brauchen bis zu 15 Sekunden)"):
-        try:
-            konfig = lese_release_konfig(inhalt, dateiname, zuordnung)
-        except (StrukturFehler, ValueError, KeyError, zipfile.BadZipFile) as e:
-            return f"Datei konnte nicht gelesen werden: {e}"
-    if konfig.architektur and konfig.architektur != arch:
-        return (
-            f"Diese Datei gehört laut {konfig.architektur_quelle} zu **{konfig.architektur}**, nicht zu {arch}. "
-            f"Bitte in das Feld {konfig.architektur} ziehen. Die bisher geladene Datei bleibt aktiv."
-        )
-    if not konfig.architektur:
-        konfig.architektur = arch
-        konfig.architektur_quelle = "vom Nutzer zugeordnet (Upload-Feld)"
-    speicher.speichere_konfig(konfig, inhalt)
-    st.session_state["meldung"] = f"{arch}: {dateiname} geladen ({len(konfig.befuellte_releases())} Releases)."
-    st.rerun()
-    return None
-
-
-def bereich_konfig(arch: str, konfig: ReleaseKonfig | None) -> None:
-    with st.container(border=True):
-        st.markdown(f"**{arch}**")
-        datei = st.file_uploader(
-            f"Release-Konfiguration {arch} (.xlsx)",
-            type=["xlsx", "xlsm", "xls"],
-            key=f"upload_{arch}",
+def bereich_konfigurationen(konfigs: dict[str, ReleaseKonfig]) -> None:
+    """Ein Feld für alle Release-Konfigurationen; jede Datei wird ihrer Architektur automatisch zugeordnet."""
+    st.markdown("**Release-Konfigurationen**")
+    dateien = st.file_uploader(
+        "Release-Konfigurationen hineinziehen – alle drei auf einmal oder einzeln (.xlsx)",
+        type=["xlsx", "xlsm", "xls"],
+        accept_multiple_files=True,
+        key="upload_konfigs",
+        help="Die Architektur (G20i2, MB.OS_0.7, MB.OS1.0) wird aus Dateiname und Inhalt erkannt. Eine neue Datei "
+        "ersetzt die bisherige dieser Architektur. Große Dateien brauchen beim ersten Einlesen bis zu 15 Sekunden.",
+    )
+    meldungen: dict[str, tuple[str, str]] = st.session_state.setdefault("konfig_meldungen", {})
+    offen: dict[str, tuple[str, bytes]] = st.session_state.setdefault("konfig_offen", {})
+    bekannt = {k.datei_hash for k in konfigs.values()}
+    im_feld = []
+    neu_geladen = False
+    for datei in dateien or []:
+        inhalt = datei.getvalue()
+        h = hashlib.sha256(inhalt).hexdigest()
+        im_feld.append(h)
+        if h in meldungen or h in bekannt:
+            continue
+        with st.spinner(f"Lese {datei.name} …"):
+            _, ergebnis, meldung = speicher.uebernehme_konfig(inhalt, datei.name)
+        # Erst NACH vollständigem Einlesen als erledigt merken: wird das Einlesen durch einen weiteren Upload
+        # unterbrochen, liest der nächste Durchlauf die Datei erneut (sonst bliebe sie stumm ungeladen).
+        meldungen[h] = (ergebnis, meldung)
+        if ergebnis == "offen":
+            offen[h] = (datei.name, inhalt)
+        neu_geladen |= ergebnis == "ok"
+    if neu_geladen:
+        st.rerun()
+    for h in im_feld:
+        ergebnis, meldung = meldungen.get(h, ("", ""))
+        if ergebnis == "fehler":
+            st.error(meldung, icon=":material/error:")
+        elif ergebnis == "ok":
+            st.caption(f":material/check: {meldung}")
+    for h, (name, inhalt) in list(offen.items()):
+        if h not in im_feld:
+            continue
+        st.warning(f"{name}: Architektur nicht erkennbar – bitte zuordnen.", icon=":material/help:")
+        c1, c2 = st.columns([2, 1])
+        arch = c1.selectbox(
+            "Architektur",
+            ARCHITEKTUREN,
+            index=None,
+            key=f"zuordnen_{h[:12]}",
+            placeholder="Architektur wählen",
             label_visibility="collapsed",
         )
-        if datei is not None:
-            inhalt = datei.getvalue()
-            h = hashlib.sha256(inhalt).hexdigest()
-            if st.session_state.get(f"verarbeitet_{arch}") != h and (konfig is None or konfig.datei_hash != h):
-                st.session_state[f"verarbeitet_{arch}"] = h
-                st.session_state[f"fehler_{arch}"] = (h, _konfig_verarbeiten(arch, inhalt, datei.name))
-            fehler_hash, fehler = st.session_state.get(f"fehler_{arch}", (None, None))
-            if fehler and fehler_hash == h:  # Meldung bleibt, solange diese Datei im Feld liegt
-                st.error(fehler, icon=":material/error:")
+        if c2.button("Zuordnen", key=f"zuordnen_ok_{h[:12]}", disabled=arch is None):
+            with st.spinner(f"Lese {name} …"):
+                _, ergebnis, meldung = speicher.uebernehme_konfig(inhalt, name, arch)
+            meldungen[h] = (ergebnis, meldung)
+            offen.pop(h, None)
+            st.rerun()
+    spalten = st.columns(len(ARCHITEKTUREN))
+    for arch, spalte in zip(ARCHITEKTUREN, spalten):
+        with spalte:
+            konfig_status(arch, konfigs.get(arch))
+
+
+def konfig_status(arch: str, konfig: ReleaseKonfig | None) -> None:
+    with st.container(border=True):
+        st.markdown(f"**{arch}**")
         if konfig is None:
-            st.caption("Noch keine Release-Konfiguration geladen.")
+            st.caption(":material/upload_file: Noch nicht geladen.")
             return
         neuester = konfig.neuester_release()
         stand = " · ".join(f"{v}" for v in konfig.versionsstand.values()) or "–"
         st.caption(
-            f":material/description: {konfig.dateiname}  \n"
-            f"Architektur: {konfig.architektur} ({konfig.architektur_quelle})  \n"
+            f":material/check_circle: {konfig.dateiname}  \n"
+            f"Erkannt über: {konfig.architektur_quelle}  \n"
             f"Stand: {stand}  \n"
             f"Neuester Release: {neuester.name if neuester else '–'} · {len(konfig.befuellte_releases())} Releases  \n"
             f"Hochgeladen: {konfig.hochgeladen.replace('T', ' ')[:16]}"
@@ -274,6 +298,27 @@ def bereich_struktur(konfigs: dict[str, ReleaseKonfig]) -> None:
 # --------------------------------------------------------------------------- Ergebnis
 
 
+def _fahrzeug_pruefen(kurztest_in: Kurztest | None, kurztest_out: Kurztest | None) -> bool:
+    """Fehlermeldung direkt unter den Upload-Feldern, wenn IN und OUT von verschiedenen Fahrzeugen stammen."""
+    if kurztest_in is None or kurztest_out is None:
+        return False
+    gleich = gleiches_fahrzeug(kurztest_in, kurztest_out)
+    if gleich is False:
+
+        def kennung(kt: Kurztest) -> str:
+            return kt.kopfdaten.get("VIN") or kt.kopfdaten.get("FiNAS") or "?"
+
+        st.error(
+            f"**Falsches Fahrzeug:** Kurztest IN ({kennung(kurztest_in)}) und OUT ({kennung(kurztest_out)}) haben "
+            "verschiedene VIN/FiNAS. Vorher/Nachher wird nicht ausgewertet.",
+            icon=":material/error:",
+        )
+        return True
+    if gleich is None:
+        st.warning("VIN/FiNAS fehlt in IN oder OUT – gleiches Fahrzeug nicht prüfbar.", icon=":material/warning:")
+    return False
+
+
 def bereich_architektur(kurztest: Kurztest, indizes: dict[str, Index]) -> str | None:
     erkannt, gruende = erkenne_architektur(kurztest, indizes)
     optionen = list(indizes)
@@ -285,7 +330,8 @@ def bereich_architektur(kurztest: Kurztest, indizes: dict[str, Index]) -> str | 
             optionen,
             index=vorgabe,
             placeholder="Bitte auswählen",
-            key=f"arch_{kurztest.dateiname}",
+            # Schlüssel enthält die geladenen Konfigurationen: kommt eine dazu, wird neu erkannt
+            key=f"arch_{kurztest.dateiname}_" + "_".join(i.konfig.datei_hash[:8] for i in indizes.values()),
             help="Automatisch erkannt über die Sachnummern des Kurztests; bei Bedarf hier ändern.",
         )
     with c2:
@@ -642,7 +688,7 @@ def main() -> None:
         st.success(meldung, icon=":material/check:")
 
     konfigs = _konfigs()
-    oben = st.columns([1.3, 1, 1, 1])
+    oben = st.columns([1, 1.7], gap="large")
     with oben[0]:
         kurztest_in = bereich_kurztest("Kurztest IN (vor dem Update)", "upload_kurztest", "Noch kein Kurztest geladen.")
         kurztest_out = bereich_kurztest(
@@ -650,17 +696,45 @@ def main() -> None:
             "upload_kurztest_out",
             "Optional: nach dem Flashen laden – dann zeigt das Tool, was tatsächlich aktualisiert wurde.",
         )
+        anderes_fahrzeug = _fahrzeug_pruefen(kurztest_in, kurztest_out)
     kurztest = kurztest_in or kurztest_out
-    for arch, spalte in zip(ARCHITEKTUREN, oben[1:]):
-        with spalte:
-            bereich_konfig(arch, konfigs.get(arch))
-    bereich_referenz()
+    with oben[1]:
+        bereich_konfigurationen(konfigs)
+    ergebnis_bereich(konfigs, kurztest, kurztest_in, kurztest_out, anderes_fahrzeug)
+    st.divider()
+    bereich_referenz()  # selten gebraucht -> ans Seitenende
     bereich_struktur(konfigs)
 
+
+def ergebnis_bereich(
+    konfigs: dict[str, ReleaseKonfig],
+    kurztest: Kurztest | None,
+    kurztest_in: Kurztest | None,
+    kurztest_out: Kurztest | None,
+    anderes_fahrzeug: bool,
+) -> None:
+    """Knopf „Abgleich starten“ und danach die Auswertung (Dashboard, Tabelle, Detail, Export, Vorher/Nachher)."""
     if kurztest is None or not konfigs:
         st.info(
             "Nächster Schritt: " + ("Kurztest hineinziehen." if kurztest is None else "Release-Konfiguration laden."),
             icon=":material/arrow_upward:",
+        )
+        return
+
+    signatur = "|".join([kurztest.dateiname, *sorted(k.datei_hash[:12] for k in konfigs.values())])
+    if st.session_state.get("abgleich_fuer") != signatur:
+        fehlend = [a for a in ARCHITEKTUREN if a not in konfigs]
+        st.divider()
+        if st.button("Abgleich starten", type="primary", icon=":material/play_arrow:"):
+            st.session_state["abgleich_fuer"] = signatur
+            st.rerun()
+        st.caption(
+            "Kurztest und Release-Konfigurationen sind geladen."
+            + (
+                f" Noch nicht geladen: {', '.join(fehlend)} (nur nötig, wenn der Kurztest dazu gehört)."
+                if fehlend
+                else ""
+            )
         )
         return
 
@@ -683,11 +757,6 @@ def main() -> None:
 
     ansicht = "in" if kurztest_out is None else "out"
     if kurztest_in is not None and kurztest_out is not None:
-        if gleiches_fahrzeug(kurztest_in, kurztest_out) is False:
-            st.error(
-                "IN und OUT stammen laut FiNAS/VIN von **verschiedenen Fahrzeugen** – Vorher/Nachher ist nicht aussagekräftig.",
-                icon=":material/error:",
-            )
         auswahl_ansicht = st.segmented_control(
             "Abgleich anzeigen für",
             ["out", "in"],
@@ -709,6 +778,13 @@ def main() -> None:
     bereich_export(ergebnisse, idx, kt_aktiv, ziel_linie)
     if kurztest_in is not None and kurztest_out is not None:
         st.divider()
+        if anderes_fahrzeug:
+            st.error(
+                "**Vorher/Nachher nicht möglich:** Kurztest IN und OUT stammen von verschiedenen Fahrzeugen. "
+                "Bitte den passenden OUT-Kurztest laden.",
+                icon=":material/error:",
+            )
+            return
         bereich_vorher_nachher(vergleiche_kurztests(erg_in, erg_out), idx, kurztest_in, kurztest_out, ziel_linie)
 
 

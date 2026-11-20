@@ -111,3 +111,37 @@ def speichere_zuordnung(architektur: str, zuordnung: dict) -> None:
     else:
         alle.pop(architektur, None)
     _atomar_schreiben(daten_ordner() / "zuordnung.json", json.dumps(alle, ensure_ascii=False, indent=2).encode("utf-8"))
+
+
+def uebernehme_konfig(
+    inhalt: bytes, dateiname: str, architektur: str | None = None
+) -> tuple[ReleaseKonfig | None, str, str]:
+    """Release-Konfiguration einlesen und unter ihrer Architektur speichern.
+
+    ``architektur``: vom Nutzer vorgegeben (nur nötig, wenn sie nicht erkannt wird).
+    Rückgabe: (Konfiguration oder ``None``, Ergebnis „ok“ | „offen“ | „fehler“, Meldung für den Nutzer).
+    „offen“ = eingelesen, Architektur aber nicht erkennbar – der Nutzer muss sie zuordnen.
+    """
+    import zipfile
+
+    from qt_tool.release_konfig import StrukturFehler, architektur_aus_text, lese_release_konfig
+
+    if dateiname.lower().endswith(".xls"):
+        return (
+            None,
+            "fehler",
+            f"{dateiname}: Das alte Excel-Format .xls wird nicht unterstützt – bitte als .xlsx speichern.",
+        )
+    vermutet = architektur or architektur_aus_text(dateiname)
+    try:
+        konfig = lese_release_konfig(inhalt, dateiname, lade_zuordnungen().get(vermutet or ""))
+    except (StrukturFehler, ValueError, KeyError, zipfile.BadZipFile) as e:
+        return None, "fehler", f"{dateiname}: konnte nicht gelesen werden – {e}"
+    if architektur:
+        if konfig.architektur and konfig.architektur != architektur:
+            konfig.hinweise.append(f"Inhalt deutet auf {konfig.architektur}, vom Nutzer als {architektur} zugeordnet.")
+        konfig.architektur, konfig.architektur_quelle = architektur, "vom Nutzer zugeordnet"
+    if not konfig.architektur:
+        return konfig, "offen", f"{dateiname}: Architektur nicht erkennbar – bitte unten zuordnen."
+    speichere_konfig(konfig, inhalt)
+    return konfig, "ok", f"{konfig.architektur}: {dateiname} geladen ({len(konfig.befuellte_releases())} Releases)."

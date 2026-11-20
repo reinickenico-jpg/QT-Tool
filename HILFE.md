@@ -8,18 +8,19 @@ Alle Dateien werden **nur auf diesem Rechner** verarbeitet.
 
 ## In 4 Schritten
 
-1. **Release-Konfigurationen laden** – die Excel-Datei je Architektur in das passende Feld ziehen:
-   **G20i2**, **MB.OS_0.7**, **MB.OS1.0**. Das muss nur einmal gemacht werden und dann wieder, wenn
-   es eine neue Version gibt: Die neue Datei ersetzt die alte. Das Feld zeigt Dateiname, erkannte
-   Architektur, Stand (Datum/TR/Version aus dem Dateinamen), neuesten Release und Upload-Datum.
-   Landet eine Datei im falschen Feld, meldet das Tool das.
+1. **Release-Konfigurationen laden** – alle Excel-Dateien (G20i2, MB.OS_0.7, MB.OS1.0) auf einmal oder einzeln
+   in das Feld **Release-Konfigurationen** ziehen. Das Tool erkennt die Architektur selbst (Dateiname und Inhalt)
+   und zeigt je Architektur eine Karte mit Dateiname, Stand (Datum/TR/Version), neuestem Release und
+   Upload-Datum. Das muss nur einmal gemacht werden und dann wieder, wenn es eine neue Version gibt: Die neue
+   Datei ersetzt die alte. Große Dateien brauchen beim ersten Einlesen bis zu 15 Sekunden. Erkennt das Tool die
+   Architektur einer Datei nicht, fragt es nach.
 2. **Kurztest hineinziehen** – am besten die **`.vrx`**-Datei (aus DTS9 oder DOBT). Sie enthält dieselben Daten wie die
    `.html`, wird aber in unter einer Sekunde gelesen (`.html`: ca. 10 Sekunden). Ein ZIP mit beiden Dateien
    geht auch (dann wird die `.vrx` genommen).
-3. **Architektur prüfen** – das Tool erkennt sie über die Sachnummern des Kurztests. Ist sie nicht
-   eindeutig, links auswählen. Verglichen wird nur mit der Release-Konfiguration dieser Architektur.
+3. **„Abgleich starten“** klicken. Das Tool erkennt die Fahrzeugarchitektur über die Sachnummern des Kurztests
+   (bei Bedarf oben ändern). Verglichen wird nur mit der Release-Konfiguration dieser Architektur.
 4. **Ergebnis ansehen** – Zahlen oben anklicken zum Filtern, Zeile anklicken für die Detailansicht,
-   unten als Excel exportieren.
+   unten als Excel oder Bericht exportieren.
 
 ## Was bedeutet der Status?
 
@@ -116,8 +117,9 @@ Sachnummer verglichen (Hinweis in der Bewertung).
 | Ergebnis | **Ziel erreicht** (nachher neuester kompatibler Stand), **Noch nicht auf neuestem Stand**, **Update nicht durchgeführt** (Update war möglich, nichts geändert), **Prüfen** (nachher Konflikt/unklar) |
 | Software vorher / nachher | nur die Teile, die sich geändert haben (alte und neue Sachnummer mit Patchlevel) |
 
-Das **Update-Protokoll** gibt es als HTML (druckbar als PDF) und als Excel. Stammen IN und OUT laut FiNAS/VIN von
-verschiedenen Fahrzeugen, warnt das Tool.
+Das **Update-Protokoll** gibt es als HTML (druckbar als PDF) und als Excel. Stammen IN und OUT laut VIN/FiNAS von
+**verschiedenen Fahrzeugen**, zeigt das Tool direkt unter den Upload-Feldern einen Fehler mit beiden VINs und wertet
+Vorher/Nachher nicht aus.
 
 ## Analysebericht je Fahrzeug
 
