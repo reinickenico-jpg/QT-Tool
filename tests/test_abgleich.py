@@ -112,8 +112,15 @@ def test_hardware_fehlt(indizes):
 def test_software_gehoert_zu_anderer_hardware(indizes):
     sg = KurztestSG("CIVIC", hw=[Teil("HW", "A9930000777")], sw=[Teil("Funktions SW", "A9930200031", "90/05.30")])
     e = vergleiche_sg(sg, indizes["MB.OS1.0"])
-    assert e.status == STATUS_KONFLIKT
+    assert e.status == STATUS_UNKLAR  # Hinweis, aber kein Beleg für einen Konflikt
     assert "Hardware nicht in der Release-Konfiguration gefunden" in e.gruende
+    assert e.kandidaten == ["DEMO CIVIC › CIVIC DEMO ECE"]
+
+
+def test_keine_zuordnung_ueber_namen(indizes):
+    """Ein fremdes Steuergerät mit ähnlichem Namen (hier „CIVIC“) ist nicht Teil der Konfiguration."""
+    sg = KurztestSG("CIVIC_X", hw=[Teil("HW", "A1110000777")], sw=[Teil("Funktions SW", "A1110000778", "90/01.00")])
+    assert vergleiche_sg(sg, indizes["MB.OS1.0"]).status == STATUS_OHNE
 
 
 def test_keine_kompatibilitaet_ohne_hw_eintrag(indizes):
