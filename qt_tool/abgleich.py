@@ -86,6 +86,7 @@ class Index:
     sw_der_variante: dict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
     komponenten_woerter: dict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
     allgemeine_woerter: set[str] = field(default_factory=set)
+    datenpakete: set[str] = field(default_factory=set)  # SW-Sachnummern, die nur in Einträgen ohne HW stehen
 
     @classmethod
     def baue(cls, konfig: ReleaseKonfig) -> Index:
@@ -100,6 +101,8 @@ class Index:
             for wort in vergleichstext(f"{e.komponente} {e.variante}").split():
                 if len(wort) >= 3 and not wort.isdigit():
                     idx.komponenten_woerter[wort].add(e.variante_id)
+        # Datenpakete (z. B. Betriebsanleitung, Carline-Bilder, Navi-Karten): baureihenspezifisch, ohne eigene HW
+        idx.datenpakete = {k for k, nrn in idx.sw.items() if all(not konfig.eintraege[i].hw for i in nrn)}
         # Wörter, die in mehr als der Hälfte aller Varianten stehen, sagen nichts über ein Steuergerät aus
         grenze = max(3, len(idx.varianten) // 2)
         idx.allgemeine_woerter = {
@@ -134,6 +137,7 @@ class Ergebnis:
     linie_quelle: str = ""
     je_linie: list[tuple[str, Eintrag]] = field(default_factory=list)  # neuester Eintrag mit dieser HW je Linie
     neuere_linien: list[tuple[str, Eintrag]] = field(default_factory=list)  # neuere Linien mit anderer Software
+    hinweise: list[str] = field(default_factory=list)  # nur zur Information, beeinflussen den Status nicht
     letzter_hw: Eintrag | None = None
     neueste_sw: list[Teil] = field(default_factory=list)
     update: bool | None = None
@@ -222,8 +226,39 @@ def sg_schluessel(position: int, sg: KurztestSG) -> str:
 def vergleiche_sg(
     sg: KurztestSG, idx: Index, gewaehlte_variante: str | None = None, ziel_linie: str | None = None
 ) -> Ergebnis:
+    erg = _vergleiche_sg(sg, idx, gewaehlte_variante, ziel_linie)
+    erg.hinweise = _datenpaket_hinweise(sg, idx)
+    return erg
+
+
+def _datenpaket_hinweise(sg: KurztestSG, idx: Index) -> list[str]:
+    """Datenpakete sind baureihenspezifisch und werden nicht bewertet – nur als Hinweis angezeigt."""
+    hinweise = []
+    for t in sg.sw:
+        if t.schluessel not in idx.datenpakete:
+            continue
+        eintraege = [idx.eintrag(i) for i in idx.sw[t.schluessel]]
+        namen = sorted({e.variante_id for e in eintraege})
+        gleich = [
+            e for e in eintraege if any(x.schluessel == t.schluessel and x.version_norm == t.version_norm for x in e.sw)
+        ]
+        neuester = max(eintraege, key=lambda e: e.release_index)
+        stand = (
+            f"entspricht {idx.release_name(max(gleich, key=lambda e: e.release_index))}"
+            if gleich
+            else f"Patchlevel {t.version or '–'} nicht in der Konfiguration"
+        )
+        hinweise.append(
+            f"Datenpaket (baureihenspezifisch, nicht bewertet): {namen[0]}"
+            + (f" und {len(namen) - 1} weitere" if len(namen) > 1 else "")
+            + f" – {t.snr} {t.version}: {stand}; in der Konfiguration bis {idx.release_name(neuester)}"
+        )
+    return hinweise
+
+
+def _vergleiche_sg(sg: KurztestSG, idx: Index, gewaehlte_variante: str | None, ziel_linie: str | None) -> Ergebnis:
     hw_keys = [k for t in sg.hw if (k := t.schluessel)]
-    sw_teile = [t for t in sg.sw if t.schluessel]
+    sw_teile = [t for t in sg.sw if t.schluessel and t.schluessel not in idx.datenpakete]
 
     if not hw_keys:
         return _ohne_hardware(sg, idx, sw_teile)

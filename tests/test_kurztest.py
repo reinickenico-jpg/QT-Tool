@@ -29,7 +29,7 @@ def test_vrx_ein_steuergeraet(kurztest):
     civic = kurztest.steuergeraete[0]
     assert civic.variante == "CIVIC206_Demo_FUP1"  # aus [EcuVariant] im LocationAccessKey
     assert [(t.schluessel, t.version_norm) for t in civic.hw] == [("9930100001", "90/01.00")]
-    assert [t.art for t in civic.sw] == [FL_SW, FUNKTIONS_SW, FUNKTIONS_SW]
+    assert [t.art for t in civic.sw] == [FL_SW, FUNKTIONS_SW, FUNKTIONS_SW, FUNKTIONS_SW]
     assert civic.sw[0].bezeichnung == "Bootloader"
     assert civic.fehler == ["B1F9952 Device Key still available"]  # SAE-Nummer wie im HTML
 

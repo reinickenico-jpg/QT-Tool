@@ -48,3 +48,12 @@ def kurztest_html(beispielordner: Path):
 
     pfad = beispielordner / "BEISPIEL_Kurztest_MB.OS1.0.html"
     return lese_kurztest(pfad, pfad.name)
+
+
+@pytest.fixture(scope="session")
+def kurztest_out(beispielordner: Path):
+    """Derselbe erfundene Fahrzeug-Kurztest nach dem Flashen („OUT“)."""
+    from qt_tool.kurztest import lese_kurztest
+
+    pfad = beispielordner / "BEISPIEL_Kurztest_MB.OS1.0_OUT.vrx"
+    return lese_kurztest(pfad, pfad.name)

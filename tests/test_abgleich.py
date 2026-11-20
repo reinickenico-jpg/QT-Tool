@@ -218,3 +218,13 @@ def test_software_einer_anderen_variante(indizes):
     e = vergleiche_sg(sg, indizes["MB.OS1.0"])
     assert e.status == STATUS_KONFLIKT
     assert any("exakt TR90/05 der Variante „HUD DEMO“" in g for g in e.gruende)
+
+
+def test_datenpaket_nur_als_hinweis(ergebnisse):
+    """Baureihenspezifische Datenpakete (Abschnitt ohne HW) beeinflussen den Status nicht."""
+    e = ergebnisse["CIVIC206"]
+    assert e.status == STATUS_AKTUELL
+    assert len(e.hinweise) == 1
+    assert e.hinweise[0].startswith("Datenpaket (baureihenspezifisch, nicht bewertet): DEMO BILDER")
+    assert "entspricht TR90/05" in e.hinweise[0]
+    assert not any("andere Variante" in g or "anderer Hardware" in g for g in e.gruende)

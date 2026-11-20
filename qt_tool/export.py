@@ -22,6 +22,7 @@ from qt_tool.abgleich import (
     Index,
 )
 from qt_tool.modell import Kurztest, Teil
+from qt_tool.vergleich import Aenderung
 
 SPALTEN = [
     "Status",
@@ -44,6 +45,7 @@ SPALTEN = [
     "Kompatibilität",
     "Variante (Release-Konfiguration)",
     "Zusätzliche Informationen",
+    "Hinweise (Datenpakete)",
     "Bemerkung / Begründung",
 ]
 
@@ -105,6 +107,7 @@ def zeile(erg: Ergebnis, idx: Index) -> dict[str, str]:
         "Kompatibilität": erg.kompatibilitaet,
         "Variante (Release-Konfiguration)": erg.variante_id or "\n".join(erg.kandidaten[:5]),
         "Zusätzliche Informationen": erg.zusatzinfo,
+        "Hinweise (Datenpakete)": "\n".join(erg.hinweise),
         "Bemerkung / Begründung": bemerkung,
     }
 
@@ -130,7 +133,11 @@ def excel_export(
         ws.cell(ws.max_row, 1).fill = fuellung
     for c in range(1, len(SPALTEN) + 1):
         ws.cell(1, c).font = Font(bold=True)
-        breite = 46 if SPALTEN[c - 1] in ("Zusätzliche Informationen", "Bemerkung / Begründung") else 22
+        breite = (
+            46
+            if SPALTEN[c - 1] in ("Zusätzliche Informationen", "Hinweise (Datenpakete)", "Bemerkung / Begründung")
+            else 22
+        )
         ws.column_dimensions[get_column_letter(c)].width = breite
     for reihe in ws.iter_rows(min_row=2):
         for zelle in reihe:
@@ -172,6 +179,74 @@ def excel_export(
         if reihe[0].value in ("Export", "Status"):
             reihe[0].font = Font(bold=True)
 
+    puffer = io.BytesIO()
+    wb.save(puffer)
+    return puffer.getvalue()
+
+
+def _stand(erg: Ergebnis | None, idx: Index) -> str:
+    if erg is None:
+        return "–"
+    if erg.aktuell:
+        return f"{erg.aktuell.e_stand} ({erg.aktuell_releases[-1]})"
+    return "kein passender Release"
+
+
+def zeile_vergleich(a: Aenderung, idx: Index) -> dict[str, str]:
+    """Tabellenzeile Vorher/Nachher."""
+    nachher = a.nachher or a.vorher
+    return {
+        "Steuergerät": a.name,
+        "Änderung": a.art,
+        "Ergebnis": a.ergebnis,
+        "Status vorher": a.vorher.status if a.vorher else "–",
+        "Status nachher": a.nachher.status if a.nachher else "–",
+        "Stand vorher": _stand(a.vorher, idx),
+        "Stand nachher": _stand(a.nachher, idx),
+        "Software vorher (ersetzt)": _liste(a.entfernt, "snr") if a.entfernt else "",
+        "Patchlevel vorher": _liste(a.entfernt, "version") if a.entfernt else "",
+        "Software nachher (neu)": _liste(a.hinzu, "snr") if a.hinzu else "",
+        "Patchlevel nachher": _liste(a.hinzu, "version") if a.hinzu else "",
+        "Neuester kompatibler Stand": (
+            f"{nachher.letzter_hw.e_stand} ({idx.release_name(nachher.letzter_hw)})"
+            if nachher and nachher.letzter_hw
+            else ""
+        ),
+        "Bemerkung nachher": "; ".join(a.nachher.gruende) if a.nachher else "",
+    }
+
+
+def excel_update_protokoll(aenderungen: list[Aenderung], idx: Index, vorher: Kurztest, nachher: Kurztest) -> bytes:
+    zeilen = [zeile_vergleich(a, idx) for a in aenderungen if a.relevant]
+    spalten = list(zeile_vergleich(aenderungen[0], idx)) if aenderungen else ["Steuergerät"]
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Vorher-Nachher"
+    ws.append(spalten)
+    for z in zeilen:
+        ws.append([z[s] for s in spalten])
+    for c in range(1, len(spalten) + 1):
+        ws.cell(1, c).font = Font(bold=True)
+        ws.column_dimensions[get_column_letter(c)].width = 40 if c == len(spalten) else 22
+    for reihe in ws.iter_rows(min_row=2):
+        for zelle in reihe:
+            zelle.alignment = Alignment(wrap_text=True, vertical="top")
+    ws.freeze_panes = "B2"
+    ws.auto_filter.ref = ws.dimensions
+    info = wb.create_sheet("Info")
+    for paar in [
+        ("Update-Protokoll", "Kurztest IN (vor dem Update) gegen OUT (nach dem Update)"),
+        ("Erstellt", datetime.now().strftime("%d.%m.%Y %H:%M")),
+        ("QT-Tool-Version", __version__),
+        ("Kurztest IN", vorher.dateiname),
+        ("Kurztest OUT", nachher.dateiname),
+        *[(f"OUT {k}", v) for k, v in nachher.kopfdaten.items()],
+        ("Architektur", idx.konfig.architektur),
+        ("Release-Konfiguration", idx.konfig.dateiname),
+    ]:
+        info.append(list(paar))
+    info.column_dimensions["A"].width = 24
+    info.column_dimensions["B"].width = 90
     puffer = io.BytesIO()
     wb.save(puffer)
     return puffer.getvalue()

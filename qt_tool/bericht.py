@@ -28,6 +28,18 @@ from qt_tool.abgleich import (
     zaehle,
 )
 from qt_tool.modell import Kurztest, Teil
+from qt_tool.vergleich import (
+    AKTUALISIERT,
+    HW_GETAUSCHT,
+    NICHT_GEFLASHT,
+    PRUEFEN,
+    UNVERAENDERT,
+    UNVOLLSTAENDIG,
+    ZIEL_ERREICHT,
+    Aenderung,
+    gleiches_fahrzeug,
+    zusammenfassung,
+)
 
 STATUS_KLASSE = {
     STATUS_AKTUELL: "gruen",
@@ -129,6 +141,8 @@ def _begruendung(erg: Ergebnis) -> str:
         text += "<div class='leise'>Mögliche Varianten: " + _e(", ".join(erg.kandidaten[:5])) + "</div>"
     if erg.zusatzinfo:
         text += f"<div class='hinweis'>{_e(erg.zusatzinfo).replace(chr(10), '<br>')}</div>"
+    if erg.hinweise:
+        text += "<div class='leise'>" + "<br>".join(_e(h) for h in erg.hinweise) + "</div>"
     return text or "–"
 
 
@@ -231,6 +245,105 @@ def erstelle_bericht(ergebnisse: list[Ergebnis], idx: Index, kurztest: Kurztest,
 Releases = Spaltenreihenfolge (rechts = neuer){"; bei MB.OS-Linien nur innerhalb einer Linie" if linie else ""}.
 Kompatibilität gilt nur, wenn die verbaute Hardware im selben Eintrag steht. Fundstellen je Steuergerät stehen in
 der Detailansicht des Tools und im Excel-Export.</p>
+<p>Vertraulich – enthält Fahrzeug- und Entwicklungsdaten.</p></footer>
+</main></body></html>
+"""
+
+
+def erstelle_update_protokoll(
+    aenderungen: list[Aenderung],
+    idx: Index,
+    vorher: Kurztest,
+    nachher: Kurztest,
+    ziel_linie: str | None = None,
+) -> str:
+    """Update-Protokoll: was wurde zwischen Kurztest IN und OUT tatsächlich geändert, und ist das Ziel erreicht."""
+    konfig = idx.konfig
+    kopf = nachher.kopfdaten
+    fahrzeug = kopf.get("FiNAS") or kopf.get("VIN") or nachher.dateiname
+    z = zusammenfassung(aenderungen)
+    offen = z[UNVOLLSTAENDIG] + z[NICHT_GEFLASHT] + z[PRUEFEN]
+    kacheln = [
+        ("Aktualisiert", z[AKTUALISIERT], "gelb"),
+        ("Hardware getauscht", z[HW_GETAUSCHT], "grau"),
+        ("Unverändert", z[UNVERAENDERT], "grau"),
+        ("Ziel erreicht", z[ZIEL_ERREICHT], "gruen"),
+        ("Noch offen", offen, "rot" if offen else "gruen"),
+    ]
+    kacheln_html = "".join(f"<div class='kachel {k}'>{_e(t)}<b>{n}</b></div>" for t, n, k in kacheln)
+    ergebnis_klasse = {ZIEL_ERREICHT: "gruen", UNVOLLSTAENDIG: "gelb", NICHT_GEFLASHT: "gelb", PRUEFEN: "rot"}
+
+    def stand(erg: Ergebnis | None) -> str:
+        if erg is None:
+            return "–"
+        if erg.aktuell:
+            return f"{_e(erg.aktuell.e_stand)} <span class='leise'>({_e(erg.aktuell_releases[-1])})</span>"
+        return "<span class='leise'>kein passender Release</span>"
+
+    def zeile(a: Aenderung) -> str:
+        n = a.nachher or a.vorher
+        status = f"{_status(a.vorher.status) if a.vorher else '–'} → {_status(a.nachher.status) if a.nachher else '–'}"
+        ziel = (
+            f"{_e(n.letzter_hw.e_stand)} <span class='leise'>({_e(idx.release_name(n.letzter_hw))})</span>"
+            if n and n.letzter_hw
+            else "–"
+        )
+        klasse = ergebnis_klasse.get(a.ergebnis, "grau")
+        bemerkung = "".join(f"<li>{_e(g)}</li>" for g in (a.nachher.gruende if a.nachher else []))
+        return (
+            f"<tr><td><b>{_e(a.name)}</b><div class='leise'>{_e(a.art)}</div></td>"
+            f"<td><span class='status {klasse}'>{_e(a.ergebnis)}</span><div>{status}</div></td>"
+            f"<td>{stand(a.vorher)}{('<div>' + _teile(a.entfernt) + '</div>') if a.entfernt else ''}</td>"
+            f"<td>{stand(a.nachher)}{('<div>' + _teile(a.hinzu) + '</div>') if a.hinzu else ''}</td>"
+            f"<td>{ziel}</td><td>{('<ul>' + bemerkung + '</ul>') if bemerkung else '–'}</td></tr>"
+        )
+
+    relevant = [a for a in aenderungen if a.relevant]
+    geaendert = [a for a in relevant if a.art != UNVERAENDERT]
+    unveraendert = [a for a in relevant if a.art == UNVERAENDERT]
+    kopf_tabelle = (
+        "<div class='tabelle'><table class='bedarf'><colgroup><col style='width:15%'><col style='width:17%'>"
+        "<col style='width:20%'><col style='width:20%'><col style='width:11%'><col style='width:17%'></colgroup>"
+        "<thead><tr><th>Steuergerät</th><th>Ergebnis</th><th>Vorher (IN)</th><th>Nachher (OUT)</th>"
+        "<th>Neuester Stand</th><th>Bemerkung</th></tr></thead><tbody>"
+    )
+
+    def tabelle(liste: list[Aenderung]) -> str:
+        if not liste:
+            return "<p class='leise'>Keine.</p>"
+        return kopf_tabelle + "".join(zeile(a) for a in liste) + "</tbody></table></div>"
+
+    andere = sorted(a.name for a in aenderungen if not a.relevant)
+    felder = [
+        ("Fahrzeug (FiNAS)", kopf.get("FiNAS", "")),
+        ("VIN", kopf.get("VIN", "")),
+        ("Kurztest IN", f"{vorher.dateiname} ({vorher.kopfdaten.get('Datum', '')})"),
+        ("Kurztest OUT", f"{nachher.dateiname} ({kopf.get('Datum', '')})"),
+        ("Architektur", konfig.architektur),
+        ("Release-Konfiguration", konfig.dateiname),
+        ("MB.OS-Linie", (ziel_linie or "automatisch") if konfig.linien() else ""),
+    ]
+    warnung = ""
+    if gleiches_fahrzeug(vorher, nachher) is False:
+        warnung = "<p class='hinweis'>Achtung: IN und OUT stammen laut FiNAS/VIN von verschiedenen Fahrzeugen.</p>"
+    kopf_html = "".join(f"<div><span class='leise'>{_e(k)}:</span> {_e(v)}</div>" for k, v in felder if v)
+    return f"""<!DOCTYPE html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Update-Protokoll {_e(fahrzeug)}</title><style>{_CSS}</style></head>
+<body><main>
+<div class="nicht-drucken" style="float:right"><button onclick="window.print()">Drucken / als PDF speichern</button></div>
+<h1>Update-Protokoll (Kurztest IN → OUT)</h1>
+<div class="leise">Fahrzeug {_e(fahrzeug)} · erstellt {datetime.now():%d.%m.%Y %H:%M} · QT-Tool {_e(__version__)}</div>
+{warnung}<div class="kopf">{kopf_html}</div>
+<section><h2>Zusammenfassung</h2><div class="kacheln">{kacheln_html}</div></section>
+<section><h2>Geändert ({len(geaendert)})</h2>{tabelle(geaendert)}</section>
+<section><h2>Unverändert mit Bezug zur Release-Konfiguration ({len(unveraendert)})</h2>{tabelle(unveraendert)}</section>
+<section><h2>Weitere Steuergeräte ohne Änderung ({len(andere)})</h2><p class="leise">{_e(", ".join(andere)) or "Keine."}</p>
+</section>
+<footer class="leise"><p>Ergebnis: <b>{ZIEL_ERREICHT}</b> = nach dem Update neuester kompatibler Stand;
+<b>{UNVOLLSTAENDIG}</b> = geändert, aber es gibt einen neueren kompatiblen Stand; <b>{NICHT_GEFLASHT}</b> =
+Update war möglich, Steuergerät ist unverändert; <b>{PRUEFEN}</b> = Konflikt oder unklar nach dem Update.
+Datenpakete (baureihenspezifisch) werden nur als Hinweis geführt.</p>
 <p>Vertraulich – enthält Fahrzeug- und Entwicklungsdaten.</p></footer>
 </main></body></html>
 """

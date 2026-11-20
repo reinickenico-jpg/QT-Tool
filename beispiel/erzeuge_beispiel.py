@@ -212,21 +212,30 @@ def erzeuge_release_konfig(arch: str, ziel: Path) -> Path:
     return pfad
 
 
-def _fahrzeug(arch: str) -> list[dict]:
+def _fahrzeug(arch: str, nach_update: bool = False) -> list[dict]:
     """Steuergeräte des erfundenen Kurztests. Namen wie im echten Kurztest (DTS), absichtlich anders als in
-    der Release-Konfiguration – zugeordnet wird über die Sachnummern."""
+    der Release-Konfiguration – zugeordnet wird über die Sachnummern.
+
+    ``nach_update``: Stand nach dem Flashen (Kurztest „OUT“): DISP_C223 und AUD223 auf neuestem Stand ihrer
+    Linie, HUD214 mit korrigiertem Patchlevel; alle anderen unverändert."""
     s = lambda g, n: snr(arch, g, n)[1:]  # noqa: E731  (Kurztest schreibt ohne „A“)
 
     def sg(name, variante, hw, sw, dtc=()):
         return {"name": name, "variante": variante, "hw": hw, "sw": sw, "dtc": list(dtc)}
 
-    return [
+    fahrzeug = [
         # Aktuell: neuester Stand (TR90/05) installiert; 1 Fehlerspeichereintrag
         sg(
             "CIVIC206",
             "CIVIC206_Demo_FUP1",
             (s(1, 1), "90/01/00"),
-            [(s(4, 1), "90/01/10", "1"), (s(2, 31), "90/05/30", "2"), (s(3, 31), "90/05/30", "2")],
+            # letztes Teil: Datenpaket (Abschnitt ohne HW, baureihenspezifisch) -> nur Hinweis
+            [
+                (s(4, 1), "90/01/10", "1"),
+                (s(2, 31), "90/05/30", "2"),
+                (s(3, 31), "90/05/30", "2"),
+                (s(22, 13), "90/04/00", "2"),
+            ],
             dtc=[("B1F9952", "Device Key still available")],
         ),
         # Update verfügbar: Stand TR90/01 installiert
@@ -253,17 +262,26 @@ def _fahrzeug(arch: str) -> list[dict]:
         sg("AUD223", "AUD223_Demo", (s(24, 1), "90/01/00"), [(s(25, 10), "90/01/00", "2")]),
         sg("ESP214", "ESP214_Demo", ("0004440000", "88/01/00"), [("0004440100", "88/01/00", "2")]),
     ]
+    if nach_update:
+        neu = {
+            "DISP_C223": [(s(10, 1), "90/01/00", "1"), (s(8, 11), "90/02/01", "2"), (s(9, 11), "90/02/01", "2")],
+            "AUD223": [(s(25, 12), "90/03/00", "2")],
+            "HUD214": [(s(16, 1), "90/01/00", "1"), (s(15, 13), "90/04/60", "2")],
+        }
+        for g in fahrzeug:
+            g["sw"] = neu.get(g["name"], g["sw"])
+    return fahrzeug
 
 
 KATEGORIE_TEXT = {"1": "Bootloader", "2": "Function"}
 
 
-def erzeuge_kurztest_vrx(ziel: Path, arch: str = "MB.OS1.0") -> Path:
-    """Erfundener Kurztest im Aufbau VDX 3.3.1 (wie DTS9-.vrx)."""
+def erzeuge_kurztest_vrx(ziel: Path, arch: str = "MB.OS1.0", nach_update: bool = False) -> Path:
+    """Erfundener Kurztest im Aufbau VDX 3.3.1 (wie DTS9-.vrx); ``nach_update`` = Kurztest „OUT“."""
     from xml.sax.saxutils import escape as x
 
     teile = []
-    for nr, g in enumerate(_fahrzeug(arch), start=1):
+    for nr, g in enumerate(_fahrzeug(arch, nach_update), start=1):
         sw = "".join(
             f"<Software><Category>{k}</Category><PartNumber><PartNumberValue>{x(n)}</PartNumberValue></PartNumber>"
             f"<Supplier><Code>0x0001</Code><Name>Beispiel</Name></Supplier><Version><VersionValue>{v}</VersionValue>"
@@ -302,7 +320,9 @@ def erzeuge_kurztest_vrx(ziel: Path, arch: str = "MB.OS1.0") -> Path:
         "<ModelLineNumber>999</ModelLineNumber><Odo><OdoValue>12345</OdoValue></Odo></VehicleInformation>"
         f"<ComponentList>{''.join(teile)}</ComponentList></VehicleReport>"
     )
-    pfad = ziel / f"BEISPIEL_Kurztest_{arch}.vrx"
+    if nach_update:
+        xml = xml.replace("2090-01-01T10:00:00", "2090-01-01T12:00:00")
+    pfad = ziel / f"BEISPIEL_Kurztest_{arch}{'_OUT' if nach_update else ''}.vrx"
     pfad.write_text(xml, encoding="utf-8")
     return pfad
 
@@ -370,6 +390,7 @@ def main(argv: list[str] | None = None) -> int:
     for arch in KENNZIFFER:
         print(erzeuge_release_konfig(arch, ziel))
     print(erzeuge_kurztest_vrx(ziel))
+    print(erzeuge_kurztest_vrx(ziel, nach_update=True))
     print(erzeuge_kurztest_html(ziel))
     return 0
 
