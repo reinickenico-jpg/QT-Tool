@@ -1,0 +1,40 @@
+[server]
+# Nur auf diesem Rechner erreichbar – Kurztests und Release-Konfigurationen sind vertraulich.
+address = "localhost"
+maxUploadSize = 100
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false
+
+# Ruhige Grautöne; Petrol nur für Hauptaktionen, aktive Navigation und Fokus (wie Forecast-Tool).
+# Statusfarben nur für Zustände und immer zusammen mit Text.
+[theme]
+font = "system-ui, Segoe UI, sans-serif"
+baseFontSize = 15
+baseRadius = "6px"
+showWidgetBorder = true
+
+[theme.light]
+primaryColor = "#0B6E69"
+backgroundColor = "#F7F7F5"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1C2321"
+borderColor = "#D9D9D2"
+greenColor = "#1E7F4E"
+orangeColor = "#B54708"
+redColor = "#B42318"
+blueColor = "#0B6E69"
+
+[theme.dark]
+primaryColor = "#137D76"
+backgroundColor = "#121615"
+secondaryBackgroundColor = "#1A1F1E"
+textColor = "#E6EBE9"
+borderColor = "#2F3735"
+greenColor = "#3FB57A"
+orangeColor = "#E39A45"
+redColor = "#E5655B"
+blueColor = "#5EC4BB"
