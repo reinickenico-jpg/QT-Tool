@@ -1,27 +1,85 @@
-# Legt bei jedem Versions-Tag (v1.2.3) ein GitHub-Release an – mit dem passenden Abschnitt aus CHANGELOG.md.
+# Baut die Windows-Version (QT-Tool.exe, ohne Python-Installation nutzbar), testet den Start und stellt sie bereit:
+#  - bei jedem Versions-Tag (v1.2.3)          -> GitHub-Release mit Changelog-Notizen und ZIP zum Herunterladen
+#  - bei jedem Pull Request, der den Bau betrifft -> ZIP unter „Artifacts“ des Laufs (zum Ausprobieren)
+#  - manuell über „Actions → Release → Run workflow“
 # Bricht ab, wenn Tag und Datei VERSION nicht zusammenpassen (Lehre aus NIRE_Projekt v0.11.1 / v0.12.0).
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths:
+      - "packaging/**"
+      - ".github/workflows/release.yml"
+      - "requirements*.txt"
+      - "app.py"
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: write  # nur für das Anlegen des Releases
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  windows:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - name: Tag passt zu VERSION
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
         run: |
-          version="$(tr -d '[:space:]' < VERSION)"
-          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
-            echo "::error::Tag ${GITHUB_REF_NAME} passt nicht zu VERSION (${version}). Erst den Release-PR mergen, dann den Tag auf diesen Merge-Commit setzen."
-            exit 1
-          fi
+          $version = (Get-Content VERSION).Trim()
+          $tag = "${{ github.ref_name }}"
+          if ($tag -ne "v$version") {
+            throw "Tag $tag passt nicht zur Datei VERSION ($version). Erst den Release-PR mergen, der VERSION auf $($tag.TrimStart('v')) setzt, dann den Tag auf diesen Merge-Commit setzen."
+          }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Abhängigkeiten installieren
+        run: pip install -r requirements-build.txt
+      - name: Programm bauen
+        run: pyinstaller --noconfirm packaging/qt_tool.spec
+      - name: Selbsttest (alle Module der App enthalten)
+        shell: pwsh
+        run: |
+          & "dist\QT-Tool\QT-Tool.exe" --selbsttest
+          if ($LASTEXITCODE -ne 0) { throw "Selbsttest fehlgeschlagen – im Programm fehlen Module." }
+      - name: Starttest (App muss antworten und die Seite ausliefern)
+        shell: pwsh
+        run: |
+          $env:USERPROFILE = "$env:RUNNER_TEMP\testnutzer"
+          New-Item -ItemType Directory -Force $env:USERPROFILE | Out-Null
+          $p = Start-Process -FilePath "dist\QT-Tool\QT-Tool.exe" -PassThru
+          $ok = $false
+          foreach ($i in 1..60) {
+            Start-Sleep -Seconds 2
+            try { if ((Invoke-WebRequest -UseBasicParsing http://localhost:8501/_stcore/health).Content -eq "ok") { $ok = $true; break } } catch {}
+          }
+          $seite = $null
+          if ($ok) { $seite = Invoke-WebRequest -UseBasicParsing http://localhost:8501/ }
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          if (-not $ok) { throw "Das Programm hat nach 120 Sekunden nicht geantwortet." }
+          if ($seite.StatusCode -ne 200) { throw "Startseite nicht erreichbar." }
+          if (-not (Test-Path "$env:USERPROFILE\QT-Tool\daten")) { throw "Datenordner wurde nicht im Benutzerordner angelegt." }
+          Write-Host "Starttest bestanden."
+      - name: ZIP erstellen
+        id: zip
+        shell: pwsh
+        run: |
+          $version = (Get-Content VERSION).Trim()
+          $name = "QT-Tool-$version-windows.zip"
+          Compress-Archive -Path "dist\QT-Tool" -DestinationPath $name
+          "name=$name" >> $env:GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QT-Tool-windows
+          path: ${{ steps.zip.outputs.name }}
+          retention-days: 30
       - name: Release-Notizen aus CHANGELOG.md
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
         run: |
           version="$(tr -d '[:space:]' < VERSION)"
           awk -v v="$version" '
@@ -30,7 +88,13 @@ jobs:
             an {print}
           ' CHANGELOG.md > notizen.md
           test -s notizen.md || { echo "::error::Kein Abschnitt [${version}] in CHANGELOG.md"; exit 1; }
-      - name: Release anlegen
+          printf '\n---\n**Installation:** ZIP herunterladen, entpacken, im Ordner `QT-Tool` die Datei `QT-Tool.exe` doppelklicken. Kein Python nötig.\n' >> notizen.md
+      - name: Release anlegen und ZIP anhängen
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" --title "QT-Tool ${GITHUB_REF_NAME}" --notes-file notizen.md
+        run: |
+          gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || \
+            gh release create "${GITHUB_REF_NAME}" --title "QT-Tool ${GITHUB_REF_NAME}" --notes-file notizen.md
+          gh release upload "${GITHUB_REF_NAME}" "${{ steps.zip.outputs.name }}" --clobber
