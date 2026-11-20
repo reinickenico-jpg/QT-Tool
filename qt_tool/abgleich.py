@@ -24,6 +24,8 @@ from dataclasses import dataclass, field
 from qt_tool.modell import Eintrag, Kurztest, KurztestSG, ReleaseKonfig, Teil, linie_sortierwert
 from qt_tool.normalisieren import snr_schluessel, vergleichstext, version_schluessel, version_sortierwert
 
+STAMM_ZIFFERN = 7  # gleicher Sachnummern-Stamm = gleiche Steuergeräte-Familie (Hinweis)
+
 STATUS_AKTUELL = "Aktuell"
 STATUS_UPDATE = "Update verfügbar"
 STATUS_KONFLIKT = "Konflikt"
@@ -773,12 +775,56 @@ def _hardware_unbekannt(sg: KurztestSG, idx: Index, sw_teile: list[Teil]) -> Erg
                 + "). Eine Kompatibilität ist damit nicht belegt – bitte prüfen."
             ),
         )
+    # Kein SW-Treffer: Bezug nur über ähnliche Hardware (gleicher Sachnummern-Stamm) oder bekannte Datenpakete
+    aehnlich = _aehnliche_hw(sg, idx)
+    pakete = [t for t in sg.sw if t.schluessel in idx.datenpakete]
+    if aehnlich:
+        gruende = ["Hardware nicht in der Release-Konfiguration gefunden"]
+        if aehnlich:
+            gruende.append(
+                "Ähnliche Hardware (gleicher Sachnummern-Stamm) in der Konfiguration: "
+                + ", ".join(f"{snr} ({var})" for snr, var in aehnlich[:3])
+                + (f" und {len(aehnlich) - 3} weitere" if len(aehnlich) > 3 else "")
+                + " – evtl. neuer, noch nicht eingepflegter Hardwarestand"
+            )
+        if pakete:
+            gruende.append(f"{len(pakete)} Datenpaket(e) des Steuergeräts sind in der Konfiguration bekannt")
+        return Ergebnis(
+            sg=sg,
+            status=STATUS_UNKLAR,
+            kandidaten=sorted({var for _, var in aehnlich})[:20],
+            kompatibilitaet="nicht feststellbar (Hardware nicht gelistet)",
+            gruende=gruende,
+            zuordnung="Kein Treffer über Hardware- oder Software-Sachnummer; Bezug nur über ähnliche Hardware/Datenpakete.",
+            begruendung=(
+                f"Die verbaute Hardware {_hw_text(sg)} und ihre Software stehen nicht in der Release-Konfiguration. "
+                "Das Steuergerät gehört aber erkennbar dazu – vermutlich ein neuer Stand, der noch nicht eingepflegt ist."
+            ),
+        )
     return Ergebnis(
         sg=sg,
         status=STATUS_OHNE,
         gruende=["Steuergerät nicht in der Release-Konfiguration gefunden"],
         begruendung=STATUS_ERKLAERUNG[STATUS_OHNE],
     )
+
+
+def _aehnliche_hw(sg: KurztestSG, idx: Index) -> list[tuple[str, str]]:
+    """HW der Konfiguration mit gleichem Sachnummern-Stamm (erste 7 Ziffern) UND passendem Namen (z. B. „CIVIC“
+    in „CIVIC174M“ und „CIVIC PREMIUM …“). Jedes Merkmal allein ist zu unscharf (viele Teile einer Baureihe
+    teilen den Stamm; Namen treffen zufällig) – nur beide zusammen ergeben einen Hinweis."""
+    staemme = {t.schluessel[:STAMM_ZIFFERN] for t in sg.hw if t.schluessel}
+    namen = set(re.findall(r"[A-Z]{3,}", sg.name.upper())) - idx.allgemeine_woerter  # „CIVIC174M“ -> {"CIVIC"}
+    treffer: dict[str, str] = {}
+    for k, nrn in idx.hw.items():
+        if k[:STAMM_ZIFFERN] not in staemme:
+            continue
+        for nr in nrn:
+            e = idx.eintrag(nr)
+            if namen & set(vergleichstext(f"{e.komponente} {e.variante}").split()):
+                treffer.setdefault(k, e.variante)
+                break
+    return sorted((f"A{k}", var) for k, var in treffer.items())
 
 
 def zaehle(ergebnisse: list[Ergebnis]) -> dict[str, int]:

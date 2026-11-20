@@ -228,3 +228,14 @@ def test_datenpaket_nur_als_hinweis(ergebnisse):
     assert e.hinweise[0].startswith("Datenpaket (baureihenspezifisch, nicht bewertet): DEMO BILDER")
     assert "entspricht TR90/05" in e.hinweise[0]
     assert not any("andere Variante" in g or "anderer Hardware" in g for g in e.gruende)
+
+
+def test_unbekannte_hw_mit_aehnlichem_stamm_ist_unklar(indizes):
+    """Neue HW (noch nicht eingepflegt) mit unbekannter SW: Bezug über den Sachnummern-Stamm, Status Unklar."""
+    sg = KurztestSG("CIVIC_NEU", hw=[Teil("HW", "A9930100099")], sw=[Teil("Funktions SW", "A9930299999", "90/06.00")])
+    e = vergleiche_sg(sg, indizes["MB.OS1.0"])
+    assert e.status == STATUS_UNKLAR
+    assert any("Ähnliche Hardware" in g and "A9930100001" in g for g in e.gruende)
+    # gleicher Stamm, aber kein Namensbezug -> nicht in der Konfiguration
+    fremd = KurztestSG("ESP_NEU", hw=[Teil("HW", "A9930100098")], sw=[])
+    assert vergleiche_sg(fremd, indizes["MB.OS1.0"]).status == STATUS_OHNE
