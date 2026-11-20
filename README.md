@@ -40,6 +40,14 @@ Bedienung: [`HILFE.md`](HILFE.md)
 
 ## Starten
 
+**Windows, ohne Installation (empfohlen):** Auf GitHub unter *Releases* das neueste
+`QT-Tool-<Version>-windows.zip` herunterladen, entpacken und im Ordner `QT-Tool` die Datei **`QT-Tool.exe`**
+doppelklicken. Der Browser öffnet sich mit dem Tool; das schwarze Fenster offen lassen, solange es benutzt wird.
+Für ein Update einfach die neue ZIP entpacken – geladene Release-Konfigurationen bleiben im Benutzerordner erhalten.
+
+> Beim ersten Start kann Windows SmartScreen warnen („Unbekannter Herausgeber“): *Weitere Informationen →
+> Trotzdem ausführen*. Die exe ist nicht signiert.
+
 **Mit Python (Entwicklung):**
 
 ```bash
@@ -47,8 +55,7 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Unter Windows alternativ `start_app.bat` doppelklicken. Eine Windows-exe ohne Python-Installation folgt
-(wie beim Forecast-Tool, gebaut über GitHub Actions).
+Unter Windows alternativ `start_app.bat` doppelklicken.
 
 ## Datenschutz
 
@@ -102,5 +109,4 @@ Arbeitsweise, Branches, Commits und Releases: siehe [`CLAUDE.md`](CLAUDE.md).
 ## Nächste Schritte
 
 1. Weitere echte Kurztests (andere Baureihen, MB.OS-Fahrzeuge) gegenprüfen.
-2. Windows-exe (PyInstaller) und Release-Workflow für den Bau ergänzen.
-3. Vorher/Nachher mit einem echten IN/OUT-Paar desselben Fahrzeugs gegenprüfen.
+2. Datenpakete: Abgleich je Baureihe, falls fachlich gewünscht (derzeit nur Hinweis).

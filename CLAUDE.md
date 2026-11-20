@@ -101,7 +101,8 @@ nächste Release-Version ableiten (Annahme im Ergebnis nennen).
    `## [x.y.z] – JJJJ-MM-TT` umbenennen und neuen leeren Abschnitt „Unveröffentlicht“ anlegen.
 2. PR nach `main`, warten bis „Tests“ grün ist, mergen (Merge-Commit).
 3. Auf dem Merge-Commit: `git tag -a vx.y.z -m "QT-Tool x.y.z"` und `git push origin vx.y.z`.
-4. Der Workflow „Release“ prüft Tag gegen `VERSION` und legt das GitHub-Release mit den Changelog-Notizen an.
+4. Der Workflow „Release“ prüft Tag gegen `VERSION`, baut die Windows-exe (`packaging/qt_tool.spec`), testet den
+   Start und legt das GitHub-Release mit den Changelog-Notizen und `QT-Tool-<Version>-windows.zip` an.
 
 ## Dashboards und Datenanalyse
 

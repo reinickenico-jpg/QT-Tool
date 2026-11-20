@@ -5,6 +5,11 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 
 ## [Unveröffentlicht]
 
+### Neu
+- **Windows-Programm** (`packaging/`): `QT-Tool.exe` ohne Python-Installation. Der Workflow „Release“ baut sie bei
+  jedem Versions-Tag, testet Start und Module und hängt `QT-Tool-<Version>-windows.zip` an das GitHub-Release.
+  Daten bleiben bei Updates im Benutzerordner (`QT-Tool\daten`).
+
 ### Geändert
 - **Unbekannte Hardware mit Bezug:** Steht die verbaute HW nicht in der Konfiguration, gibt es aber HW mit gleichem
   Sachnummern-Stamm **und** passendem Namen (z. B. CIVIC174M ↔ „CIVIC PREMIUM …“), ist der Status „Unklar“ mit
