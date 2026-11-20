@@ -15,13 +15,15 @@ def test_tabellenzeile_hat_alle_spalten(kurztest, indizes):
     z = zeile(_ergebnisse(kurztest, indizes)[1], idx)
     assert list(z) == SPALTEN
     assert z["Update verfügbar"] == "Ja"
-    assert z["Neuester kompatibler Release-Stand"] == "TR90/05"
+    assert z["Neuester kompatibler Release-Stand"] == "TR90/03"  # neuester Stand in Linie 2090-1.0
+    assert z["MB.OS-Linie"] == "2090-1.0"
+    assert "2090-2.0" in z["Neuere Linie mit anderem Stand"]
 
 
 def test_excel_exporte(kurztest, indizes):
     idx = indizes["MB.OS1.0"]
     erg = _ergebnisse(kurztest, indizes)
-    erwartet = {"vollstaendig": 8, "abweichungen": 5, "updates": 1, "unklar": 4}
+    erwartet = {"vollstaendig": 9, "abweichungen": 6, "updates": 2, "unklar": 4}
     for art, anzahl in erwartet.items():
         wb = openpyxl.load_workbook(io.BytesIO(excel_export(erg, idx, kurztest, art)))
         ws = wb["Ergebnis"]
@@ -33,10 +35,10 @@ def test_excel_exporte(kurztest, indizes):
 def test_filter_und_suche(kurztest, indizes):
     idx = indizes["MB.OS1.0"]
     erg = _ergebnisse(kurztest, indizes)
-    assert len(filtere(erg, idx)) == 7  # ohne Bezug ausgeblendet
-    assert len(filtere(erg, idx, ohne_bezug_ausblenden=False)) == 8
-    assert [e.sg.name for e in filtere(erg, idx, status=STATUS_UPDATE)] == ["DISP_C223"]
+    assert len(filtere(erg, idx)) == 8  # ohne Bezug ausgeblendet
+    assert len(filtere(erg, idx, ohne_bezug_ausblenden=False)) == 9
+    assert [e.sg.name for e in filtere(erg, idx, status=STATUS_UPDATE)] == ["DISP_C223", "AUD223"]
     assert [e.sg.name for e in filtere(erg, idx, status=STATUS_OHNE)] == ["ESP214"]
     assert [e.sg.name for e in filtere(erg, idx, suche="993 140")] == ["HUD214"]  # Sachnummer mit Leerzeichen
-    assert [e.sg.name for e in filtere(erg, idx, update="Ja")] == ["DISP_C223"]
-    assert {e.sg.name for e in filtere(erg, idx, releases=["TR90/03"])} == {"TELM", "TELM_B"}
+    assert [e.sg.name for e in filtere(erg, idx, update="Ja")] == ["DISP_C223", "AUD223"]
+    assert {e.sg.name for e in filtere(erg, idx, releases=["TR90/03"])} == {"TELM", "TELM_B", "DISP_C223", "AUD223"}

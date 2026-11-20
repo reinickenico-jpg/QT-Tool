@@ -20,6 +20,8 @@ from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 
 RELEASES = ["TR90/01", "TR90/03", "TR90/03a", "TR90/05", "TR90/07"]  # letzter Block bleibt leer
+# Nur MB.OS1.0 führt parallele Linien („MB.OS Release In Focus“); TR90/07 bleibt leer
+LINIEN = {"MB.OS1.0": ["2090-1.0", "2090-1.0", "2090-2.0", "2090-2.0", "2090-2.0"]}
 NOTIZEN = {3: "CIVIC DEMO neue SW E103.0\nHUD DEMO: nur mit Bootloader BOOT flashen\nAllgemein: Beispieldaten"}
 PROJEKT = {"G20i2": "GEN20Xi2", "MB.OS_0.7": "Gen20Xi3 MB.OS 0.7", "MB.OS1.0": "Gen20Xi3"}
 KENNZIFFER = {"G20i2": "1", "MB.OS_0.7": "2", "MB.OS1.0": "3"}
@@ -111,6 +113,15 @@ def varianten(arch: str) -> list[dict]:
     ecall_ece = {i: stand("E700.0", ecall_hw, [("", s(20, 10 + i), f"90/0{1 + i}.80")], [], []) for i in range(4)}
     ecall_nafta = {i: stand("E710.0", ecall_hw, [("", s(21, 10 + i), f"90/0{1 + i}.90")], [], []) for i in range(4)}
     bilder = {i: stand("", [], [("", s(22, 10 + i), f"90/0{1 + i}.00")], [], []) for i in range(4)}
+    # Linien-Fall: neuester Stand der Linie 2090-1.0 (TR90/03, E802.0) ist neuer als der in der rechtesten
+    # Spalte (TR90/05, Linie 2090-2.0, E801.0) – die Spaltenreihenfolge gilt nur innerhalb einer Linie
+    audio_hw = [(s(24, 1), "90/01.00", "")]
+    audio = {
+        0: stand("E800.0", audio_hw, [("", s(25, 10), "90/01.00")], [], []),
+        1: stand("E802.0", audio_hw, [("", s(25, 12), "90/03.00")], [], []),
+        2: stand("E801.0", audio_hw, [("", s(25, 11), "90/02.00")], [], []),
+        3: stand("E801.0", audio_hw, [("", s(25, 11), "90/02.00")], [], []),
+    }
 
     return [
         {"komponente": "DEMO CIVIC", "variante": "CIVIC DEMO ECE", "staende": civic},
@@ -122,6 +133,7 @@ def varianten(arch: str) -> list[dict]:
         {"komponente": "DEMO ECALL", "variante": "ECALL DEMO ECE", "staende": ecall_ece},
         {"komponente": "DEMO ECALL", "variante": "ECALL DEMO NAFTA", "staende": ecall_nafta},
         {"komponente": "DEMO BILDER", "variante": None, "staende": bilder},  # Gruppe ohne eigenen Titel
+        {"komponente": "DEMO AUDIO", "variante": "AUDIO DEMO", "staende": audio},
     ]
 
 
@@ -140,6 +152,8 @@ def erzeuge_release_konfig(arch: str, ziel: Path) -> Path:
     ws.cell(3, t, "Project")
     ws.cell(6, 2, "Component")
     ws.cell(9, t, "Release Start")
+    if arch in LINIEN:
+        ws.cell(11, t, "MB.OS Release In Focus")
     ws.cell(12, t, "Title")
     for i, name in enumerate(RELEASES):
         s = ERSTER_BLOCK + i * BLOCKBREITE
@@ -149,6 +163,8 @@ def erzeuge_release_konfig(arch: str, ziel: Path) -> Path:
             ws.cell(2, s + 2, NOTIZEN[i])
         ws.cell(3, s, PROJEKT[arch])
         ws.cell(9, s, date(2090, 1 + i, 1))
+        if arch in LINIEN:
+            ws.cell(11, s, LINIEN[arch][i])
         for k, kopf in enumerate(BLOCKKOPF):
             if kopf:
                 ws.cell(12, s + k, kopf)
@@ -233,6 +249,8 @@ def _fahrzeug(arch: str) -> list[dict]:
         # Unklar: HW in zwei Varianten, Software unbekannt
         sg("ECALL214", "ECALL214_Demo", (s(19, 1), "90/01/00"), [(s(23, 99), "90/01/00", "2")]),
         # Nicht in der Release-Konfiguration (Fahrwerk-Steuergerät)
+        # Linien-Fall: Stand TR90/01 (Linie 2090-1.0) installiert
+        sg("AUD223", "AUD223_Demo", (s(24, 1), "90/01/00"), [(s(25, 10), "90/01/00", "2")]),
         sg("ESP214", "ESP214_Demo", ("0004440000", "88/01/00"), [("0004440100", "88/01/00", "2")]),
     ]
 

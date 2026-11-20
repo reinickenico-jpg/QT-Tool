@@ -21,7 +21,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from qt_tool.modell import Eintrag, Kurztest, KurztestSG, ReleaseKonfig, Teil
+from qt_tool.modell import Eintrag, Kurztest, KurztestSG, ReleaseKonfig, Teil, linie_sortierwert
 from qt_tool.normalisieren import snr_schluessel, vergleichstext, version_schluessel, version_sortierwert
 
 STATUS_AKTUELL = "Aktuell"
@@ -113,6 +113,9 @@ class Index:
     def release_name(self, e: Eintrag) -> str:
         return self.konfig.releases[e.release_index].name
 
+    def linie(self, e: Eintrag) -> str:
+        return self.konfig.releases[e.release_index].linie
+
 
 @dataclass
 class Ergebnis:
@@ -127,6 +130,10 @@ class Ergebnis:
     aktuell: Eintrag | None = None
     aktuell_releases: list[str] = field(default_factory=list)
     naechster_treffer: Eintrag | None = None  # bei Abweichung: Eintrag mit den meisten Übereinstimmungen
+    linie: str = ""  # MB.OS-Linie, in der „neuester Stand“ bestimmt wurde (nur MB.OS1.0)
+    linie_quelle: str = ""
+    je_linie: list[tuple[str, Eintrag]] = field(default_factory=list)  # neuester Eintrag mit dieser HW je Linie
+    neuere_linien: list[tuple[str, Eintrag]] = field(default_factory=list)  # neuere Linien mit anderer Software
     letzter_hw: Eintrag | None = None
     neueste_sw: list[Teil] = field(default_factory=list)
     update: bool | None = None
@@ -196,17 +203,25 @@ def erkenne_architektur(kurztest: Kurztest, indizes: dict[str, Index]) -> tuple[
 # --------------------------------------------------------------------------- Abgleich
 
 
-def abgleich(kurztest: Kurztest, idx: Index, wahl: dict[str, str] | None = None) -> list[Ergebnis]:
-    """Vergleicht alle Steuergeräte. ``wahl``: SG-Schlüssel -> vom Nutzer gewählte Variante."""
+def abgleich(
+    kurztest: Kurztest, idx: Index, wahl: dict[str, str] | None = None, ziel_linie: str | None = None
+) -> list[Ergebnis]:
+    """Vergleicht alle Steuergeräte. ``wahl``: SG-Schlüssel -> vom Nutzer gewählte Variante.
+    ``ziel_linie``: MB.OS-Linie für „neuester Stand“; ``None`` = je Steuergerät die Linie des installierten Stands."""
     wahl = wahl or {}
-    return [vergleiche_sg(sg, idx, wahl.get(sg_schluessel(i, sg))) for i, sg in enumerate(kurztest.steuergeraete)]
+    return [
+        vergleiche_sg(sg, idx, wahl.get(sg_schluessel(i, sg)), ziel_linie)
+        for i, sg in enumerate(kurztest.steuergeraete)
+    ]
 
 
 def sg_schluessel(position: int, sg: KurztestSG) -> str:
     return f"{position}:{sg.name}"
 
 
-def vergleiche_sg(sg: KurztestSG, idx: Index, gewaehlte_variante: str | None = None) -> Ergebnis:
+def vergleiche_sg(
+    sg: KurztestSG, idx: Index, gewaehlte_variante: str | None = None, ziel_linie: str | None = None
+) -> Ergebnis:
     hw_keys = [k for t in sg.hw if (k := t.schluessel)]
     sw_teile = [t for t in sg.sw if t.schluessel]
 
@@ -258,7 +273,7 @@ def vergleiche_sg(sg: KurztestSG, idx: Index, gewaehlte_variante: str | None = N
         ]
         return erg
 
-    return _bewerte_variante(sg, idx, variante, je_variante[variante], sw_teile, zuordnung_zusatz)
+    return _bewerte_variante(sg, idx, variante, je_variante[variante], sw_teile, zuordnung_zusatz, ziel_linie)
 
 
 def _vergleiche(
@@ -319,22 +334,50 @@ def _bewerte_variante(
     vergleiche: list[_Vergleich],
     sw_teile: list[Teil],
     zuordnung_zusatz: str,
+    ziel_linie: str | None = None,
 ) -> Ergebnis:
     konfig = idx.konfig
-    letzter_v = _neuester_hw_eintrag(vergleiche, idx)
-    letzter = idx.eintrag(letzter_v.eintrag_nr)
     exakte = sorted((v for v in vergleiche if v.exakt), key=lambda v: idx.eintrag(v.eintrag_nr).release_index)
     bester = _bester(vergleiche)
-    erg = Ergebnis(sg=sg, status=STATUS_UNKLAR, variante_id=variante, hw_konfig=letzter_v.hw_teil, letzter_hw=letzter)
+    erg = Ergebnis(sg=sg, status=STATUS_UNKLAR, variante_id=variante)
+
+    # MB.OS-Linie bestimmen: Spaltenreihenfolge gilt nur innerhalb einer Linie
+    if konfig.linien():
+        erg.je_linie = _je_linie(vergleiche, idx)
+        if ziel_linie:
+            erg.linie, erg.linie_quelle = ziel_linie, "gewählte Ziel-Linie"
+        elif exakte and idx.linie(idx.eintrag(exakte[-1].eintrag_nr)):
+            erg.linie, erg.linie_quelle = (
+                idx.linie(idx.eintrag(exakte[-1].eintrag_nr)),
+                "Linie des installierten Stands",
+            )
+        else:
+            mit_linie = [lin for lin, _ in erg.je_linie if lin]
+            erg.linie = mit_linie[-1] if mit_linie else konfig.linien()[-1]
+            erg.linie_quelle = "neueste Linie mit dieser Hardware"
+        vergleiche = [v for v in vergleiche if idx.linie(idx.eintrag(v.eintrag_nr)) == erg.linie]
+        if not vergleiche:
+            return _nicht_in_linie(erg, idx, variante, exakte)
+
+    letzter_v = _neuester_hw_eintrag(vergleiche, idx)
+    letzter = idx.eintrag(letzter_v.eintrag_nr)
+    erg.hw_konfig, erg.letzter_hw = letzter_v.hw_teil, letzter
     erg.kompatibilitaet = "kompatibel (HW in der Konfiguration gelistet)"
 
     # Abweichungs-Hinweise, die unabhängig vom Status gelten
-    neuester_der_variante = max(idx.eintrag(i).release_index for i in idx.varianten[variante])
+    in_linie = [
+        idx.eintrag(i).release_index
+        for i in idx.varianten[variante]
+        if not erg.linie or idx.linie(idx.eintrag(i)) == erg.linie
+    ]
+    neuester_der_variante = max(in_linie)
     if letzter.release_index < neuester_der_variante:
         erg.gruende.append(
             f"Verbaute Hardware wird in neueren Releases nicht mehr unterstützt (letzter Release: "
             f"{idx.release_name(letzter)}, Variante läuft weiter bis {konfig.releases[neuester_der_variante].name})"
         )
+    if erg.linie:
+        _linien_hinweise(erg, idx, variante, letzter)
     hw_fzg = sg.hw_haupt
     if (
         hw_fzg
@@ -359,8 +402,15 @@ def _bewerte_variante(
         erg.zuordnung = (
             "Exakter Treffer über Hardware-Sachnummer + Software-Sachnummern + Patchlevel." + zuordnung_zusatz
         )
-        if erg.aktuell.release_index == letzter.release_index:
+        if any(v.eintrag_nr == letzter_v.eintrag_nr for v in exakte):
             erg.status, erg.update = STATUS_AKTUELL, False
+        elif erg.linie and linie_sortierwert(idx.linie(erg.aktuell)) > linie_sortierwert(erg.linie):
+            erg.status, erg.update = STATUS_UNKLAR, None
+            erg.gruende.insert(
+                0,
+                f"Installierter Stand gehört zur neueren Linie {idx.linie(erg.aktuell)} – Ziel-Linie {erg.linie} "
+                "wäre ein Rückschritt",
+            )
         else:
             erg.status, erg.update = STATUS_UPDATE, True
             erg.gruende.insert(0, "Neuerer kompatibler Softwarestand verfügbar – Softwareupdate möglich")
@@ -439,6 +489,67 @@ def _sw_passt_zu_anderer_hw(relevant: list[Teil], variante: str, idx: Index) -> 
     return treffer
 
 
+def _je_linie(vergleiche: list[_Vergleich], idx: Index) -> list[tuple[str, Eintrag]]:
+    """Neuester Eintrag mit dieser Hardware je Linie (älteste Linie zuerst)."""
+    neueste: dict[str, Eintrag] = {}
+    for v in vergleiche:
+        e = idx.eintrag(v.eintrag_nr)
+        lin = idx.linie(e)
+        if lin not in neueste or e.release_index > neueste[lin].release_index:
+            neueste[lin] = e
+    return sorted(neueste.items(), key=lambda kv: linie_sortierwert(kv[0]))
+
+
+def _linien_hinweise(erg: Ergebnis, idx: Index, variante: str, letzter: Eintrag) -> None:
+    """Neuere Linien mit anderem Softwarestand bzw. ohne diese Hardware als Hinweis aufnehmen."""
+    eigene = linie_sortierwert(erg.linie)
+    erg.neuere_linien = [
+        (lin, e) for lin, e in erg.je_linie if linie_sortierwert(lin) > eigene and _sw_satz(e) != _sw_satz(letzter)
+    ]
+    if erg.neuere_linien:
+        erg.gruende.append(
+            "Neuere Linie mit anderem Softwarestand: "
+            + ", ".join(f"{lin} ({e.e_stand or idx.release_name(e)})" for lin, e in erg.neuere_linien)
+        )
+    mit_hw = {lin for lin, _ in erg.je_linie}
+    ohne_hw = sorted(
+        {
+            idx.linie(idx.eintrag(i))
+            for i in idx.varianten[variante]
+            if idx.linie(idx.eintrag(i))
+            and linie_sortierwert(idx.linie(idx.eintrag(i))) > eigene
+            and idx.linie(idx.eintrag(i)) not in mit_hw
+        },
+        key=linie_sortierwert,
+    )
+    if ohne_hw:
+        erg.gruende.append(f"Verbaute Hardware wird in neueren Linien nicht mehr unterstützt: {', '.join(ohne_hw)}")
+
+
+def _nicht_in_linie(erg: Ergebnis, idx: Index, variante: str, exakte: list[_Vergleich]) -> Ergebnis:
+    """Die Hardware kommt in der Ziel-Linie nicht vor."""
+    if exakte:
+        erg.aktuell = idx.eintrag(exakte[-1].eintrag_nr)
+        erg.aktuell_releases = [idx.release_name(idx.eintrag(v.eintrag_nr)) for v in exakte]
+    variante_in_linie = any(idx.linie(idx.eintrag(i)) == erg.linie for i in idx.varianten[variante])
+    if variante_in_linie:
+        erg.status = STATUS_KONFLIKT
+        erg.kompatibilitaet = f"Hardware in Linie {erg.linie} nicht freigegeben"
+        erg.gruende = [f"Verbaute Hardware wird in Linie {erg.linie} nicht unterstützt"]
+    else:
+        erg.status = STATUS_UNKLAR
+        erg.gruende = [f"Variante kommt in Linie {erg.linie} nicht vor"]
+    if erg.je_linie:
+        erg.gruende.append("Linien mit dieser Hardware: " + ", ".join(lin or "ohne Linie" for lin, _ in erg.je_linie))
+    erg.zuordnung = "Zuordnung über Hardware-Sachnummer; in der Ziel-Linie kein Eintrag für diese Hardware."
+    erg.begruendung = (
+        f"In der Ziel-Linie {erg.linie} ist für die verbaute Hardware {_hw_text(erg.sg)} kein Stand hinterlegt. "
+        "Die Tabelle „je Linie“ in der Detailansicht zeigt, in welchen Linien sie geführt wird."
+    )
+    erg.fundstellen = _fundstellen(erg, idx)
+    return erg
+
+
 def _zahl(wert: str | None) -> int:
     try:
         return int(wert or 0)
@@ -499,7 +610,7 @@ def _begruendung(erg: Ergebnis, idx: Index) -> str:
     sg, letzter = erg.sg, erg.letzter_hw
     hw = erg.hw_konfig.snr if erg.hw_konfig else _hw_text(sg)
     installiert = _sw_text([t for t in sg.sw if t.schluessel])
-    neu_name = idx.release_name(letzter) if letzter else "–"
+    neu_name = (idx.release_name(letzter) if letzter else "–") + (f", Linie {erg.linie}" if erg.linie else "")
     neu_sw = _sw_text(erg.neueste_sw)
     if erg.status == STATUS_AKTUELL:
         return (
