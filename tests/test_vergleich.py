@@ -54,7 +54,9 @@ def test_protokoll_html_und_excel(kurztest, kurztest_out, indizes):
     liste = sorted(v.values(), key=lambda a: a.name)
     html = erstelle_update_protokoll(liste, idx, kurztest, kurztest_out)
     assert "Update-Protokoll (Kurztest IN → OUT)" in html
-    assert "Geändert (3)" in html and "BEISPIEL_Kurztest_MB.OS1.0_OUT.vrx" in html
+    assert "Geändert – mit Bezug zur Release-Konfiguration (3)" in html
+    assert "Weitere geänderte Steuergeräte – nicht in der Release-Konfiguration (0)" in html
+    assert "BEISPIEL_Kurztest_MB.OS1.0_OUT.vrx" in html
     wb = openpyxl.load_workbook(io.BytesIO(excel_update_protokoll(liste, idx, kurztest, kurztest_out)))
     ws = wb["Vorher-Nachher"]
     assert ws.max_row - 1 == sum(1 for a in liste if a.relevant)

@@ -5,6 +5,13 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Unbekannte Hardware mit Bezug:** Steht die verbaute HW nicht in der Konfiguration, gibt es aber HW mit gleichem
+  Sachnummern-Stamm **und** passendem Namen (z. B. CIVIC174M ↔ „CIVIC PREMIUM …“), ist der Status „Unklar“ mit
+  Hinweis auf einen vermutlich neuen, noch nicht eingepflegten Hardwarestand (vorher „nicht in der Konfiguration“).
+- **Update-Protokoll übersichtlicher:** geänderte Steuergeräte mit Bezug zur Release-Konfiguration zuerst; übrige
+  geflashte Steuergeräte (z. B. Antrieb, Fahrwerk) kompakt in eigenem Abschnitt nur mit Software vorher/nachher.
+
 ### Neu
 - **Vorher/Nachher** (`qt_tool/vergleich.py`): zweites Upload-Feld für den Kurztest OUT (nach dem Flashen).
   Je Steuergerät: aktualisiert / Hardware getauscht / unverändert / neu / fehlt, alte und neue Software-Stände,

@@ -298,9 +298,25 @@ def erstelle_update_protokoll(
             f"<td>{ziel}</td><td>{('<ul>' + bemerkung + '</ul>') if bemerkung else '–'}</td></tr>"
         )
 
+    def mit_bezug(a: Aenderung) -> bool:
+        return any(e is not None and e.status != STATUS_OHNE for e in (a.vorher, a.nachher))
+
     relevant = [a for a in aenderungen if a.relevant]
-    geaendert = [a for a in relevant if a.art != UNVERAENDERT]
+    geaendert = [a for a in relevant if a.art != UNVERAENDERT and mit_bezug(a)]
+    geaendert_ohne = [a for a in relevant if a.art != UNVERAENDERT and not mit_bezug(a)]
     unveraendert = [a for a in relevant if a.art == UNVERAENDERT]
+    ohne_html = (
+        "<div class='tabelle'><table><thead><tr><th>Steuergerät</th><th>Änderung</th><th>Software vorher</th>"
+        "<th>Software nachher</th></tr></thead><tbody>"
+        + "".join(
+            f"<tr><td><b>{_e(a.name)}</b></td><td>{_e(a.art)}</td><td>{_teile(a.entfernt)}</td>"
+            f"<td>{_teile(a.hinzu)}</td></tr>"
+            for a in geaendert_ohne
+        )
+        + "</tbody></table></div>"
+        if geaendert_ohne
+        else "<p class='leise'>Keine.</p>"
+    )
     kopf_tabelle = (
         "<div class='tabelle'><table class='bedarf'><colgroup><col style='width:15%'><col style='width:17%'>"
         "<col style='width:20%'><col style='width:20%'><col style='width:11%'><col style='width:17%'></colgroup>"
@@ -336,8 +352,11 @@ def erstelle_update_protokoll(
 <div class="leise">Fahrzeug {_e(fahrzeug)} · erstellt {datetime.now():%d.%m.%Y %H:%M} · QT-Tool {_e(__version__)}</div>
 {warnung}<div class="kopf">{kopf_html}</div>
 <section><h2>Zusammenfassung</h2><div class="kacheln">{kacheln_html}</div></section>
-<section><h2>Geändert ({len(geaendert)})</h2>{tabelle(geaendert)}</section>
-<section><h2>Unverändert mit Bezug zur Release-Konfiguration ({len(unveraendert)})</h2>{tabelle(unveraendert)}</section>
+<section><h2>Geändert – mit Bezug zur Release-Konfiguration ({len(geaendert)})</h2>{tabelle(geaendert)}</section>
+<section><h2>Unverändert – mit Bezug zur Release-Konfiguration ({len(unveraendert)})</h2>{tabelle(unveraendert)}</section>
+<section><h2>Weitere geänderte Steuergeräte – nicht in der Release-Konfiguration ({len(geaendert_ohne)})</h2>
+<p class="leise">Wurden geflasht, gehören aber nicht zur Release-Konfiguration (z. B. Antrieb, Fahrwerk) – daher ohne
+Bewertung.</p>{ohne_html}</section>
 <section><h2>Weitere Steuergeräte ohne Änderung ({len(andere)})</h2><p class="leise">{_e(", ".join(andere)) or "Keine."}</p>
 </section>
 <footer class="leise"><p>Ergebnis: <b>{ZIEL_ERREICHT}</b> = nach dem Update neuester kompatibler Stand;
