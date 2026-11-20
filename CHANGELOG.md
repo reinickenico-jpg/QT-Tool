@@ -16,6 +16,10 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
   ZIP; beide liefern dieselben Steuergeräte. Angezeigt wird der Name aus dem Kurztest, zugeordnet über
   Sachnummern. Variante, Fehlerspeicher (SAE-Nummer), nicht auslesbare Sachnummern und Komponenten ohne Antwort
   werden erkannt; der Benutzername des Testers wird nicht übernommen.
+- **MB.OS-Linien (MB.OS1.0):** Die Spaltenreihenfolge gilt nur noch innerhalb einer Linie. Vorgabe ist die Linie
+  des installierten Stands je Steuergerät, eine Ziel-Linie ist wählbar. Neu: Spalten „MB.OS-Linie“ und „Neuere
+  Linie mit anderem Stand“, Tabelle „Neuester Stand je MB.OS-Linie“ in der Detailansicht, Ziel-Linie im
+  Excel-Export. Vorher konnte ein älterer Stand aus der rechtesten Spalte einer anderen Linie empfohlen werden.
 - DOBT-Kurztests (`.vrx` und `.vrx.html`, ISO-8859-1) werden gelesen; Zeichensatz-Erkennung korrigiert
   (UTF-16 nur noch mit BOM).
 - Keine Zuordnung mehr über Steuergerätenamen (Zufallstreffer wie „SEAT“ in „… 4-SEAT“). Unbekannte Hardware

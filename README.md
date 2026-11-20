@@ -28,6 +28,7 @@ Bedienung: [`HILFE.md`](HILFE.md)
 | Thema | Regel |
 |---|---|
 | Release-Reihenfolge | Spaltenposition in der Release-Konfiguration: rechts = neuer. Leere Release-Spalten zählen nicht. |
+| MB.OS-Linien (MB.OS1.0) | Spaltenreihenfolge gilt nur innerhalb einer Linie („MB.OS Release In Focus“). Vorgabe: Linie des installierten Stands je Steuergerät; Ziel-Linie wählbar; neuere Linien mit anderem Stand als Hinweis und Tabelle „je Linie“ |
 | Patchlevel | ganze Versionsangabe `JJ/WW.BB` (Jahr/KW.Build); Trennzeichen egal |
 | Kompatibilität | nur, wenn die Hardware im selben Eintrag unter *HW* oder *HW altern.* steht |
 | Zusätzliche Informationen | Notizfeld je Release (neben dem Release-Namen), dem Steuergerät über Namen/E-Stand zugeordnet |

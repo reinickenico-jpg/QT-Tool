@@ -60,6 +60,22 @@ konnte (`??????????`), werden nicht verglichen und in der Detailansicht vermerkt
 **Welcher Release ist der neueste?** Der in der Release-Konfiguration am weitesten **rechts** stehende
 Release-Block mit Einträgen. Release-Spalten ohne Einträge werden ignoriert.
 
+## MB.OS-Linien (nur MB.OS1.0)
+
+Die MB.OS1.0-Konfiguration führt **parallele Linien** (Zeile „MB.OS Release In Focus“, z. B. `2026-4.0`,
+`2027-1.0`, `2027-2.0`). Die Regel „rechts = neuer“ gilt dann **nur innerhalb einer Linie** – die rechteste
+Spalte einer anderen Linie kann sogar einen älteren Stand haben.
+
+- Oben erscheint das Auswahlfeld **MB.OS-Linie**. Vorgabe ist **Automatisch**: je Steuergerät die Linie, zu
+  der der installierte Stand passt. Status und „neueste kompatible Software“ gelten innerhalb dieser Linie.
+- Wer auf eine bestimmte Linie flashen will, wählt sie aus. Dann wird für alle Steuergeräte der neueste Stand
+  dieser Linie verwendet. Wird die Hardware dort nicht mehr geführt, ist der Status **Konflikt**; gehört der
+  installierte Stand zu einer neueren Linie, ist er **Unklar** (Rückschritt).
+- Neuere Linien mit anderem Stand stehen in der Spalte **Neuere Linie mit anderem Stand** und in der Bewertung.
+- Die Detailansicht zeigt die Tabelle **Neuester Stand je MB.OS-Linie** – mit Markierung der verwendeten Linie.
+
+G20i2 und MB.OS_0.7 haben keine Linien; dort erscheint das Auswahlfeld nicht.
+
 **Patchlevel:** die ganze Versionsangabe, z. B. `26/46.29` = Jahr 2026, KW 46, Build 29. Kurztest
 (`26/46/29`) und Release-Konfiguration (`26/46.29`) schreiben sie nur mit anderen Trennzeichen – das
 Tool behandelt beide gleich. Steht in der Release-Konfiguration kein Patchlevel, wird nur über die
@@ -78,6 +94,8 @@ Sachnummer verglichen (Hinweis in der Bewertung).
 | Letzter Release für die verbaute HW | neuester Release, in dem diese Hardware noch geführt wird |
 | Neueste kompatible SW-Partnummer / Patchlevel | Software dieses Releases, passend zu den installierten Teilen |
 | Neuester kompatibler Release-Stand | gleich „Letzter Release für die verbaute HW“ – dort steht die neueste kompatible Software |
+| MB.OS-Linie | Linie, in der bewertet wurde (nur MB.OS1.0) |
+| Neuere Linie mit anderem Stand | neuere Linien, deren neuester Stand für diese Hardware anders ist (nur MB.OS1.0) |
 | Zusätzliche Informationen | Zeilen aus dem **Notizfeld** des Releases (oben neben dem Release-Namen), die dieses Steuergerät betreffen |
 | Bemerkung / Begründung | Abweichungen und wie die Zuordnung erfolgt ist |
 
