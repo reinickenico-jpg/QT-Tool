@@ -1,1 +1,4 @@
-# Laufzeit-Abhängigkeiten des Tools (mit Mindestversion, z. B. pandas>=2.0)
+# Laufzeit-Abhängigkeiten
+openpyxl>=3.1   # Excel lesen/schreiben (Release-Konfigurationen, Export)
+pandas>=2.0     # Tabellen in der Oberfläche
+streamlit>=1.67 # Oberfläche im Browser (lokal)
