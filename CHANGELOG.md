@@ -5,6 +5,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 
 ## [Unveröffentlicht]
 
+## [0.2.0] – 2026-11-20
+
 ### Behoben
 - **Release-Konfigurationen wurden nicht geladen**, wenn während des Einlesens (bis 15 s) schon die nächste Datei
   hineingezogen wurde: Das Einlesen wurde abgebrochen, die Datei aber als erledigt markiert – ohne Meldung. Eine
