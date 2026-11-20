@@ -6,6 +6,9 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 ## [Unveröffentlicht]
 
 ### Neu
+- **Analysebericht je Fahrzeug** (`qt_tool/bericht.py`): eigenständige HTML-Datei mit Fahrzeugdaten,
+  Release-Konfiguration/Linie, Zusammenfassung, Handlungsbedarf mit Empfehlung und Begründung, aktuellen und
+  nicht zugeordneten Steuergeräten; im Browser als PDF druckbar (A4), hell/dunkel, ohne Internet.
 - **Prototyp Kurztest-Abgleich** (`app.py`, `qt_tool/`): Kurztest (.html, .vrx – Erkennung vorläufig) und
   Release-Konfigurationen für G20i2, MB.OS_0.7 und MB.OS1.0 per Drag & Drop laden; Architektur automatisch
   erkennen (manuell änderbar); je Steuergerät Abgleich von Hardware, Software und Patchlevel mit aktuellem
