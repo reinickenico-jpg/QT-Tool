@@ -29,11 +29,24 @@ from qt_tool.abgleich import (
     sg_schluessel,
     zaehle,
 )
-from qt_tool.bericht import erstelle_bericht
-from qt_tool.export import EXPORTE, SPALTEN, excel_export, filtere, zeile
+from qt_tool.bericht import erstelle_bericht, erstelle_update_protokoll
+from qt_tool.export import EXPORTE, SPALTEN, excel_export, excel_update_protokoll, filtere, zeile, zeile_vergleich
 from qt_tool.kurztest import KurztestFehler, lese_kurztest
 from qt_tool.modell import ARCHITEKTUREN, Eintrag, Kurztest, ReleaseKonfig, Teil
 from qt_tool.release_konfig import StrukturFehler, Zuordnung, lese_release_konfig
+from qt_tool.vergleich import (
+    AKTUALISIERT,
+    HW_GETAUSCHT,
+    NICHT_GEFLASHT,
+    PRUEFEN,
+    UNVERAENDERT,
+    UNVOLLSTAENDIG,
+    ZIEL_ERREICHT,
+    Aenderung,
+    gleiches_fahrzeug,
+    vergleiche_kurztests,
+    zusammenfassung,
+)
 
 STATUS_BADGE = {
     STATUS_AKTUELL: ("green", ":material/check_circle:"),
@@ -102,17 +115,18 @@ def _badge(status: str) -> None:
 # --------------------------------------------------------------------------- Upload-Bereiche
 
 
-def bereich_kurztest() -> Kurztest | None:
-    st.markdown("**Kurztest**")
+def bereich_kurztest(titel: str, schluessel: str, leer: str) -> Kurztest | None:
+    st.markdown(f"**{titel}**")
     datei = st.file_uploader(
-        "Kurztest hier hineinziehen (.vrx / .html / .zip)",
+        f"{titel} hineinziehen (.vrx / .html / .zip)",
         type=["vrx", "html", "htm", "zip"],
-        key="upload_kurztest",
+        key=schluessel,
+        label_visibility="collapsed",
         help="Am besten die .vrx-Datei: enthält dieselben Daten wie die .html, wird aber in unter einer Sekunde "
         "gelesen (.html: ca. 10 s). Ein ZIP mit beiden Dateien geht auch. Verarbeitung nur auf diesem Rechner.",
     )
     if datei is None:
-        st.caption("Noch kein Kurztest geladen.")
+        st.caption(leer)
         return None
     try:
         with st.spinner("Lese Kurztest …"):
@@ -329,7 +343,7 @@ def bereich_dashboard(ergebnisse: list[Ergebnis]) -> str | None:
     return None if wahl in (None, "Alle") else wahl
 
 
-def bereich_tabelle(ergebnisse: list[Ergebnis], idx: Index, status: str | None) -> Ergebnis | None:
+def bereich_tabelle(ergebnisse: list[Ergebnis], idx: Index, status: str | None, ansicht: str = "") -> Ergebnis | None:
     c1, c2, c3, c4 = st.columns([2, 2, 1, 1])
     suche = c1.text_input("Suche", placeholder="Steuergerät, HW-/SW-Partnummer, Version, Patchlevel", key="suche")
     release_namen = [r.name for r in idx.konfig.befuellte_releases()][::-1]
@@ -358,14 +372,14 @@ def bereich_tabelle(ergebnisse: list[Ergebnis], idx: Index, status: str | None) 
         height=min(560, 38 + 35 * len(df)),
         on_select="rerun",
         selection_mode="single-row",
-        key="tabelle",
+        key=f"tabelle_{ansicht}",
         column_config={
             "Zusätzliche Informationen": st.column_config.TextColumn(width="large"),
             "Bemerkung / Begründung": st.column_config.TextColumn(width="large"),
         },
     )
     zeilen = ereignis.selection.rows if ereignis and ereignis.selection else []
-    return sichtbar[zeilen[0]] if zeilen else None
+    return sichtbar[zeilen[0]] if zeilen and zeilen[0] < len(sichtbar) else None
 
 
 def _eintrag_felder(e: Eintrag | None, idx: Index, mit_hw: bool = False) -> list[tuple[str, str]]:
@@ -378,7 +392,7 @@ def _eintrag_felder(e: Eintrag | None, idx: Index, mit_hw: bool = False) -> list
     return felder
 
 
-def bereich_detail(erg: Ergebnis, idx: Index, position: int) -> None:
+def bereich_detail(erg: Ergebnis, idx: Index, position: int, wahl_speicher: dict[str, str]) -> None:
     sg = erg.sg
     with st.container(border=True):
         k1, k2 = st.columns([3, 1])
@@ -394,12 +408,12 @@ def bereich_detail(erg: Ergebnis, idx: Index, position: int) -> None:
             schluessel = sg_schluessel(position, sg)
             wahl = st.selectbox("Variante", erg.kandidaten, key=f"wahl_{schluessel}", label_visibility="collapsed")
             if st.button("Variante übernehmen", type="primary", key=f"wahl_ok_{schluessel}"):
-                st.session_state["wahl"][schluessel] = wahl
+                wahl_speicher[schluessel] = wahl
                 st.rerun()
-        elif sg_schluessel(position, sg) in st.session_state["wahl"] and st.button(
+        elif sg_schluessel(position, sg) in wahl_speicher and st.button(
             "Manuelle Variantenwahl zurücksetzen", key=f"wahl_weg_{position}"
         ):
-            st.session_state["wahl"].pop(sg_schluessel(position, sg))
+            wahl_speicher.pop(sg_schluessel(position, sg))
             st.rerun()
 
         a, b = st.columns(2)
@@ -492,6 +506,10 @@ def bereich_detail(erg: Ergebnis, idx: Index, position: int) -> None:
             with st.expander("Vollständige Release-Notiz"):
                 st.text(erg.release_notiz)
 
+        if erg.hinweise:
+            st.markdown("**Hinweise** (nicht bewertet)")
+            st.markdown("\n".join(f"- {h}" for h in erg.hinweise))
+
         st.markdown("**Bewertung**")
         st.markdown("\n".join(f"- {g}" for g in erg.gruende) or "- keine Abweichungen")
         if erg.zuordnung:
@@ -540,6 +558,61 @@ def bereich_export(ergebnisse: list[Ergebnis], idx: Index, kurztest: Kurztest, z
     )
 
 
+ERGEBNIS_ZELLE = {
+    ZIEL_ERREICHT: STATUS_ZELLE[STATUS_AKTUELL],
+    UNVOLLSTAENDIG: STATUS_ZELLE[STATUS_UPDATE],
+    NICHT_GEFLASHT: STATUS_ZELLE[STATUS_UPDATE],
+    PRUEFEN: STATUS_ZELLE[STATUS_KONFLIKT],
+}
+
+
+def bereich_vorher_nachher(
+    aenderungen: list[Aenderung], idx: Index, kurztest_in: Kurztest, kurztest_out: Kurztest, ziel_linie: str | None
+) -> None:
+    st.subheader("Vorher/Nachher – was wurde tatsächlich aktualisiert?")
+    st.caption(f"IN: {kurztest_in.dateiname}  ·  OUT: {kurztest_out.dateiname}")
+    z = zusammenfassung(aenderungen)
+    sp = st.columns(5)
+    sp[0].metric("Aktualisiert", z[AKTUALISIERT])
+    sp[1].metric("Hardware getauscht", z[HW_GETAUSCHT])
+    sp[2].metric("Unverändert", z[UNVERAENDERT])
+    sp[3].metric("Ziel erreicht", z[ZIEL_ERREICHT])
+    sp[4].metric("Noch offen", z[UNVOLLSTAENDIG] + z[NICHT_GEFLASHT] + z[PRUEFEN])
+    nur_geaendert = st.toggle("Nur geänderte Steuergeräte", value=False, key="nur_geaendert")
+    zeilen = [
+        zeile_vergleich(a, idx) for a in aenderungen if a.relevant and (not nur_geaendert or a.art != UNVERAENDERT)
+    ]
+    if not zeilen:
+        st.info("Keine Steuergeräte für diese Auswahl.", icon=":material/search_off:")
+    else:
+        df = pd.DataFrame(zeilen)
+        stil = df.style.map(lambda v: ERGEBNIS_ZELLE.get(v, ""), subset=["Ergebnis"])
+        st.dataframe(stil, hide_index=True, width="stretch", height=min(560, 38 + 35 * len(df)))
+    basis = kurztest_out.dateiname.rsplit(".", 1)[0]
+    c1, c2, c3 = st.columns([1, 1, 2])
+    c1.download_button(
+        "Update-Protokoll (HTML)",
+        data=lambda: erstelle_update_protokoll(aenderungen, idx, kurztest_in, kurztest_out, ziel_linie).encode("utf-8"),
+        file_name=f"{basis}_Update-Protokoll.html",
+        mime="text/html",
+        icon=":material/summarize:",
+        on_click="ignore",
+        width="stretch",
+        key="export_protokoll_html",
+    )
+    c2.download_button(
+        "Update-Protokoll (Excel)",
+        data=lambda: excel_update_protokoll(aenderungen, idx, kurztest_in, kurztest_out),
+        file_name=f"{basis}_Update-Protokoll.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        icon=":material/download:",
+        on_click="ignore",
+        width="stretch",
+        key="export_protokoll_xlsx",
+    )
+    c3.caption("Protokoll im Browser öffnen und über „Drucken → Als PDF speichern“ als PDF ablegen.")
+
+
 def seitenleiste() -> None:
     with st.sidebar:
         st.markdown(f"**QT-Tool** {__version__}")
@@ -571,7 +644,13 @@ def main() -> None:
     konfigs = _konfigs()
     oben = st.columns([1.3, 1, 1, 1])
     with oben[0]:
-        kurztest = bereich_kurztest()
+        kurztest_in = bereich_kurztest("Kurztest IN (vor dem Update)", "upload_kurztest", "Noch kein Kurztest geladen.")
+        kurztest_out = bereich_kurztest(
+            "Kurztest OUT (nach dem Update)",
+            "upload_kurztest_out",
+            "Optional: nach dem Flashen laden – dann zeigt das Tool, was tatsächlich aktualisiert wurde.",
+        )
+    kurztest = kurztest_in or kurztest_out
     for arch, spalte in zip(ARCHITEKTUREN, oben[1:]):
         with spalte:
             bereich_konfig(arch, konfigs.get(arch))
@@ -592,15 +671,45 @@ def main() -> None:
         return
     idx = indizes[arch]
     ziel_linie = bereich_linie(idx)
-    ergebnisse = abgleich(kurztest, idx, st.session_state["wahl"], ziel_linie)
+
+    def auswerten(kt: Kurztest | None, art: str) -> tuple[list[Ergebnis], dict[str, str]]:
+        if kt is None:
+            return [], {}
+        speicher_wahl = st.session_state["wahl"].setdefault(f"{art}:{kt.dateiname}", {})
+        return abgleich(kt, idx, speicher_wahl, ziel_linie), speicher_wahl
+
+    erg_in, wahl_in = auswerten(kurztest_in, "in")
+    erg_out, wahl_out = auswerten(kurztest_out, "out")
+
+    ansicht = "in" if kurztest_out is None else "out"
+    if kurztest_in is not None and kurztest_out is not None:
+        if gleiches_fahrzeug(kurztest_in, kurztest_out) is False:
+            st.error(
+                "IN und OUT stammen laut FiNAS/VIN von **verschiedenen Fahrzeugen** – Vorher/Nachher ist nicht aussagekräftig.",
+                icon=":material/error:",
+            )
+        auswahl_ansicht = st.segmented_control(
+            "Abgleich anzeigen für",
+            ["out", "in"],
+            default="out",
+            format_func=lambda a: "Kurztest OUT (nach dem Update)" if a == "out" else "Kurztest IN (vor dem Update)",
+            key="ansicht",
+        )
+        ansicht = auswahl_ansicht or "out"
+    kt_aktiv, ergebnisse, wahl_aktiv = (
+        (kurztest_out, erg_out, wahl_out) if ansicht == "out" else (kurztest_in, erg_in, wahl_in)
+    )
 
     st.divider()
     status = bereich_dashboard(ergebnisse)
-    auswahl = bereich_tabelle(ergebnisse, idx, status)
+    auswahl = bereich_tabelle(ergebnisse, idx, status, ansicht)
     if auswahl is not None:
-        bereich_detail(auswahl, idx, next(i for i, e in enumerate(ergebnisse) if e is auswahl))
+        bereich_detail(auswahl, idx, next(i for i, e in enumerate(ergebnisse) if e is auswahl), wahl_aktiv)
     st.divider()
-    bereich_export(ergebnisse, idx, kurztest, ziel_linie)
+    bereich_export(ergebnisse, idx, kt_aktiv, ziel_linie)
+    if kurztest_in is not None and kurztest_out is not None:
+        st.divider()
+        bereich_vorher_nachher(vergleiche_kurztests(erg_in, erg_out), idx, kurztest_in, kurztest_out, ziel_linie)
 
 
 main()

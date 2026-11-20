@@ -40,6 +40,10 @@ Release-Konfiguration sind oft anders (z. B. „CIVIC PREMIUM ECE …“). Zugeo
 **über die Sachnummern** (Hardware und Software), nicht über den Namen. Welche Variante der
 Release-Konfiguration verwendet wurde, steht in der Spalte *Variante (Release-Konfiguration)*.
 
+**Datenpakete** (z. B. Betriebsanleitung, Carline-Bilder, Sound- und Navi-Daten des CIVIC) stehen in der
+Release-Konfiguration in eigenen Abschnitten ohne Hardware und sind baureihenspezifisch. Sie werden **nicht
+bewertet**, sondern unter *Hinweise* angezeigt (mit dem Release, zu dem ihr Stand passt).
+
 Steuergeräte, die im Kurztest keine Hardware-/Software-Daten haben (keine Antwort oder nicht verbaut),
 werden nicht bewertet; ihre Anzahl steht unter dem Kurztest. Sachnummern, die das Steuergerät nicht liefern
 konnte (`??????????`), werden nicht verglichen und in der Detailansicht vermerkt.
@@ -98,6 +102,22 @@ Sachnummer verglichen (Hinweis in der Bewertung).
 | Neuere Linie mit anderem Stand | neuere Linien, deren neuester Stand für diese Hardware anders ist (nur MB.OS1.0) |
 | Zusätzliche Informationen | Zeilen aus dem **Notizfeld** des Releases (oben neben dem Release-Namen), die dieses Steuergerät betreffen |
 | Bemerkung / Begründung | Abweichungen und wie die Zuordnung erfolgt ist |
+
+## Vorher/Nachher: was wurde tatsächlich aktualisiert?
+
+1. Vor dem Flashen den Kurztest **IN** laden – das Tool zeigt, wo Updates möglich sind.
+2. Nach dem Flashen zusätzlich den Kurztest **OUT** in das zweite Feld ziehen.
+3. Oben umschalten, ob der Abgleich für IN oder OUT angezeigt wird (Vorgabe: OUT = Endstand).
+4. Unten erscheint **Vorher/Nachher**: je Steuergerät (Zuordnung über den Namen im Kurztest)
+
+| Spalte | Bedeutung |
+|---|---|
+| Änderung | **Aktualisiert** (Software/Patchlevel geändert), **Hardware getauscht**, **Unverändert**, **Neu im OUT**, **Fehlt im OUT** |
+| Ergebnis | **Ziel erreicht** (nachher neuester kompatibler Stand), **Noch nicht auf neuestem Stand**, **Update nicht durchgeführt** (Update war möglich, nichts geändert), **Prüfen** (nachher Konflikt/unklar) |
+| Software vorher / nachher | nur die Teile, die sich geändert haben (alte und neue Sachnummer mit Patchlevel) |
+
+Das **Update-Protokoll** gibt es als HTML (druckbar als PDF) und als Excel. Stammen IN und OUT laut FiNAS/VIN von
+verschiedenen Fahrzeugen, warnt das Tool.
 
 ## Analysebericht je Fahrzeug
 
