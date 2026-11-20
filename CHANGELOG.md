@@ -6,5 +6,14 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 ## [Unveröffentlicht]
 
 ### Neu
+- **Prototyp Kurztest-Abgleich** (`app.py`, `qt_tool/`): Kurztest (.html, .vrx – Erkennung vorläufig) und
+  Release-Konfigurationen für G20i2, MB.OS_0.7 und MB.OS1.0 per Drag & Drop laden; Architektur automatisch
+  erkennen (manuell änderbar); je Steuergerät Abgleich von Hardware, Software und Patchlevel mit aktuellem
+  Release-Stand, letztem Release für die verbaute Hardware und neuester kompatibler Software; Status Aktuell /
+  Update verfügbar / Konflikt / Unklar mit Begründung und Fundstellen; Dashboard, Filter, Suche, Detailansicht,
+  manuelle Variantenwahl; Excel-Export (vollständig, Abweichungen, Updates, unklar).
+- Release-Konfigurationen bleiben lokal gespeichert, bis eine neue Version hochgeladen wird; manuelle
+  Spaltenzuordnung je Architektur.
+- Erfundene Beispieldaten (`beispiel/erzeuge_beispiel.py`), Bedienungsanleitung `HILFE.md`.
 - Projektgrundlage: Projektanweisungen (Senior-Entwickler, Git/Versionierung), Prüfwerkzeuge (ruff, pytest),
   GitHub-Workflows für Tests und Releases, Pull-Request-Vorlage. Übernommen und verallgemeinert aus NIRE_Projekt.
