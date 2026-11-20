@@ -376,10 +376,11 @@ def bereich_detail(erg: Ergebnis, idx: Index, position: int) -> None:
             if st.button("Variante übernehmen", type="primary", key=f"wahl_ok_{schluessel}"):
                 st.session_state["wahl"][schluessel] = wahl
                 st.rerun()
-        elif sg_schluessel(position, sg) in st.session_state["wahl"]:
-            if st.button("Manuelle Variantenwahl zurücksetzen", key=f"wahl_weg_{position}"):
-                st.session_state["wahl"].pop(sg_schluessel(position, sg))
-                st.rerun()
+        elif sg_schluessel(position, sg) in st.session_state["wahl"] and st.button(
+            "Manuelle Variantenwahl zurücksetzen", key=f"wahl_weg_{position}"
+        ):
+            st.session_state["wahl"].pop(sg_schluessel(position, sg))
+            st.rerun()
 
         a, b = st.columns(2)
         with a, st.container(border=True):
