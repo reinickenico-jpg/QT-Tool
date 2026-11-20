@@ -34,6 +34,16 @@ def indizes(konfigs: dict) -> dict:
 
 @pytest.fixture(scope="session")
 def kurztest(beispielordner: Path):
+    """Erfundener Kurztest als VRX (VDX 3.3.1, wie DTS9)."""
+    from qt_tool.kurztest import lese_kurztest
+
+    pfad = beispielordner / "BEISPIEL_Kurztest_MB.OS1.0.vrx"
+    return lese_kurztest(pfad, pfad.name)
+
+
+@pytest.fixture(scope="session")
+def kurztest_html(beispielordner: Path):
+    """Derselbe erfundene Kurztest als HTML-Ansicht."""
     from qt_tool.kurztest import lese_kurztest
 
     pfad = beispielordner / "BEISPIEL_Kurztest_MB.OS1.0.html"

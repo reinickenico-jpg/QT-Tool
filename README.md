@@ -9,6 +9,8 @@ Bedienung: [`HILFE.md`](HILFE.md)
 
 ## Funktionen
 
+- Kurztest aus DTS9 als `.vrx` (bevorzugt, < 1 s), `.html` (~10 s) oder ZIP; angezeigt werden die Namen aus dem
+  Kurztest, zugeordnet wird über die Sachnummern.
 - Drag & Drop für Kurztest und je Architektur eine Release-Konfiguration; neue Versionen ersetzen die alte
   und bleiben bis zum nächsten Upload gespeichert.
 - Flexible Erkennung der Excel-Struktur (Kopfzeile, Titelspalte, Release-Blöcke über den Inhalt, nicht über
@@ -64,7 +66,7 @@ python -m pytest
 | `qt_tool/modell.py` | einheitliches Datenmodell (Teil, Eintrag, Release, ReleaseKonfig, KurztestSG) |
 | `qt_tool/normalisieren.py` | Sachnummern und Versionen vergleichbar machen |
 | `qt_tool/release_konfig.py` | Excel-Release-Konfiguration einlesen, Architektur/Version erkennen |
-| `qt_tool/kurztest.py` | Kurztest (HTML, VRX) einlesen |
+| `qt_tool/kurztest.py` | Kurztest einlesen: VRX (VDX 3.x aus DTS9), HTML-Ansicht, ZIP; Rückfall für andere Aufbauten |
 | `qt_tool/abgleich.py` | Abgleich, Status, Begründung, Fundstellen |
 | `qt_tool/export.py` | Tabellenzeilen, Filter, Excel-Export |
 | `qt_tool/speicher.py` | lokale Ablage der Konfigurationen und Zuordnungen |
@@ -74,10 +76,12 @@ Arbeitsweise, Branches, Commits und Releases: siehe [`CLAUDE.md`](CLAUDE.md).
 
 ## Bekannte Einschränkungen
 
-- **Kurztest-Format vorläufig:** Es lag noch kein Beispiel-Kurztest vor. Die HTML-Erkennung folgt dem
-  Aufbau aus den Makros der bisherigen Referenz-Excel (Block „ECU Name“, Zeilen „HW“/„SW“ mit SA-Nr.,
-  Version, Kategorie); `.vrx` wird als XML versucht. *Nächster Schritt:* je ein echter `.html`- und
-  `.vrx`-Kurztest, dann Synonyme/Erkennung in `qt_tool/kurztest.py` anpassen und mit anonymisierter Kopie testen.
+- **Kurztest-Formate:** geprüft mit einem echten DTS9-Kurztest (VDX 3.3.1): `.vrx` und `.html` liefern
+  identische Steuergeräte. Andere Diagnosesysteme/Versionen laufen über eine Rückfall-Erkennung (Muster für
+  Sachnummer und Version) und sind ungeprüft. *Nächster Schritt:* bei Abweichungen Beispieldatei in
+  `qt_tool/kurztest.py` ergänzen.
+- **Kategorie-Codes im VRX:** 1 = Bootloader, 2 = Function (aus dem Beispiel abgeleitet); 3 als Data angenommen.
+  Für den Abgleich unerheblich, da über Sachnummern verglichen wird.
 - **Mehrdeutige Varianten:** Dieselbe HW mit gleicher SW steht teils in mehreren Varianten (z. B. Change
   Years), die erst später unterschiedliche Software bekommen. Dann ist „Unklar“ mit manueller Auswahl korrekt.
   *Nächster Schritt:* prüfen, ob der Kurztest ein eindeutiges Merkmal liefert (Variantenname, LU-SNR) –
@@ -90,6 +94,6 @@ Arbeitsweise, Branches, Commits und Releases: siehe [`CLAUDE.md`](CLAUDE.md).
 
 ## Nächste Schritte
 
-1. Echte Kurztests (`.html`, `.vrx`) auswerten und Parser festziehen.
+1. Weitere echte Kurztests (andere Baureihen, MB.OS-Fahrzeuge) gegenprüfen.
 2. Windows-exe (PyInstaller) und Release-Workflow für den Bau ergänzen.
 3. Optional: kompakter Analysebericht (PDF/HTML) je Fahrzeug.
