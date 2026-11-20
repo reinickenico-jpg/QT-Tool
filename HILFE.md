@@ -35,8 +35,8 @@ Der Status steht immer auch als Text da – nicht nur als Farbe.
 
 ## Namen der Steuergeräte
 
-In der Tabelle stehen immer die **Namen aus dem Kurztest** (z. B. `CIVIC206`, `HUD214`). Die Namen in der
-Release-Konfiguration sind oft anders (z. B. „CIVIC PREMIUM+ ECE CY27-1 (LS4+)“). Zugeordnet wird deshalb
+In der Tabelle stehen immer die **Namen aus dem Kurztest** (z. B. `CIVIC206`). Die Namen in der
+Release-Konfiguration sind oft anders (z. B. „CIVIC PREMIUM ECE …“). Zugeordnet wird deshalb
 **über die Sachnummern** (Hardware und Software), nicht über den Namen. Welche Variante der
 Release-Konfiguration verwendet wurde, steht in der Spalte *Variante (Release-Konfiguration)*.
 

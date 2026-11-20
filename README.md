@@ -76,8 +76,8 @@ Arbeitsweise, Branches, Commits und Releases: siehe [`CLAUDE.md`](CLAUDE.md).
 
 ## Bekannte Einschränkungen
 
-- **Kurztest-Formate:** geprüft mit einem echten DTS9-Kurztest (BR 214, VDX 3.3.1): `.vrx` und `.html` liefern
-  dieselben 89 Steuergeräte. Andere Diagnosesysteme/Versionen laufen über eine Rückfall-Erkennung (Muster für
+- **Kurztest-Formate:** geprüft mit einem echten DTS9-Kurztest (VDX 3.3.1): `.vrx` und `.html` liefern
+  identische Steuergeräte. Andere Diagnosesysteme/Versionen laufen über eine Rückfall-Erkennung (Muster für
   Sachnummer und Version) und sind ungeprüft. *Nächster Schritt:* bei Abweichungen Beispieldatei in
   `qt_tool/kurztest.py` ergänzen.
 - **Kategorie-Codes im VRX:** 1 = Bootloader, 2 = Function (aus dem Beispiel abgeleitet); 3 als Data angenommen.

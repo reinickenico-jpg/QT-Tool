@@ -1,6 +1,6 @@
 """Einlesen eines Fahrzeug-Kurztests (.vrx, .html) in das einheitliche Datenmodell.
 
-Grundlage ist ein echter Kurztest aus DTS9 (Beispiel BR 214, September 2026):
+Grundlage ist ein echter Kurztest aus DTS9 (nicht im Repository):
 
 **VRX** (bevorzugt) – XML im Format VDX 3.3.1 (``<VehicleReport>``):
 
