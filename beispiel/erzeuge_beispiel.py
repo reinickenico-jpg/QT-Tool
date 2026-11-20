@@ -7,7 +7,7 @@ Aufruf:
     python beispiel/erzeuge_beispiel.py [Zielordner]
 
 Erzeugt je Architektur eine Release-Konfiguration (``BEISPIEL_<Architektur>_TR90-05_V1.xlsx``) und
-einen Kurztest (``BEISPIEL_Kurztest_MB.OS1.0.html``), der jeden Status einmal auslöst.
+einen Kurztest im Aufbau von DTS9 – als ``.vrx`` (VDX 3.3.1) und als ``.html`` –, der jeden Status auslöst.
 """
 
 from __future__ import annotations
@@ -196,69 +196,152 @@ def erzeuge_release_konfig(arch: str, ziel: Path) -> Path:
     return pfad
 
 
-def _qt_block(name: str, adresse: str, hw: tuple[str, str] | None, sw: list[tuple[str, str, str]]) -> str:
-    def zeile(*zellen: str) -> str:
-        return "<tr>" + "".join(f"<td>{z}</td>" for z in zellen) + "</tr>"
+def _fahrzeug(arch: str) -> list[dict]:
+    """Steuergeräte des erfundenen Kurztests. Namen wie im echten Kurztest (DTS), absichtlich anders als in
+    der Release-Konfiguration – zugeordnet wird über die Sachnummern."""
+    s = lambda g, n: snr(arch, g, n)[1:]  # noqa: E731  (Kurztest schreibt ohne „A“)
 
-    def mit_leerzeichen(nr: str) -> str:  # Kurztest schreibt Sachnummern ohne „A“ und mit Leerzeichen
-        z = nr[1:]
-        return f"{z[:3]} {z[3:6]} {z[6:8]} {z[8:]}"
+    def sg(name, variante, hw, sw, dtc=()):
+        return {"name": name, "variante": variante, "hw": hw, "sw": sw, "dtc": list(dtc)}
 
-    teile = [
-        zeile("ECU Name", "Diagnostic address", "Variant"),
-        zeile(name, adresse, f"{name}_VARIANTE"),
-        zeile("Status", "OK"),
-        zeile("HW", "SA-Nr.", "Version", "", "Kategorie"),
-    ]
-    if hw:
-        teile.append(zeile("", mit_leerzeichen(hw[0]), hw[1].replace(".", "/"), "", "Hardware"))
-    teile.append(zeile("SW", "SA-Nr.", "Version", "", "Kategorie"))
-    for nr, version, kategorie in sw:
-        teile.append(zeile("", mit_leerzeichen(nr), version.replace(".", "/"), "", kategorie))
-    return "\n".join(teile)
-
-
-def erzeuge_kurztest(ziel: Path, arch: str = "MB.OS1.0") -> Path:
-    s = lambda g, n: snr(arch, g, n)  # noqa: E731
-    bloecke = [
-        # Aktuell: neuester Stand (TR90/05) installiert
-        _qt_block(
-            "CIVIC",
-            "0x4A",
-            (s(1, 1), "90/01.00"),
-            [(s(2, 31), "90/05.30", "Function"), (s(3, 31), "90/05.30", "Data"), (s(4, 1), "90/01.10", "Boot")],
+    return [
+        # Aktuell: neuester Stand (TR90/05) installiert; 1 Fehlerspeichereintrag
+        sg(
+            "CIVIC206",
+            "CIVIC206_Demo_FUP1",
+            (s(1, 1), "90/01/00"),
+            [(s(4, 1), "90/01/10", "1"), (s(2, 31), "90/05/30", "2"), (s(3, 31), "90/05/30", "2")],
+            dtc=[("B1F9952", "Device Key still available")],
         ),
         # Update verfügbar: Stand TR90/01 installiert
-        _qt_block(
-            "DISPLAY_C",
-            "0x5B",
-            (s(7, 1), "90/01.00"),
-            [(s(8, 10), "90/01.00", "Function"), (s(9, 10), "90/01.00", "Data"), (s(10, 1), "90/01.00", "Boot")],
+        sg(
+            "DISP_C223",
+            "DISP_C223_Demo",
+            (s(7, 1), "90/01/00"),
+            [(s(10, 1), "90/01/00", "1"), (s(8, 10), "90/01/00", "2"), (s(9, 10), "90/01/00", "2")],
         ),
         # Aktuell, aber HW wird in neueren Releases nicht mehr unterstützt
-        _qt_block(
-            "TEL", "0x61", (s(11, 1), "90/01.00"), [(s(12, 11), "90/03.50", "Function"), (s(13, 1), "90/01.00", "Boot")]
-        ),
+        sg("TELM", "TELM_Demo", (s(11, 1), "90/01/00"), [(s(13, 1), "90/01/00", "1"), (s(12, 11), "90/03/50", "2")]),
+        # Konflikt: neueste SW auf alter HW (SW gehört laut Konfiguration zur neuen HW)
+        sg("TELM_B", "TELM_Demo", (s(11, 1), "90/01/00"), [(s(13, 1), "90/01/00", "1"), (s(12, 13), "90/05/50", "2")]),
         # Konflikt: Sachnummer passt, Patchlevel nicht
-        _qt_block(
-            "HUD", "0x70", (s(14, 1), "90/01.00"), [(s(15, 13), "90/04.61", "Function"), (s(16, 1), "90/01.00", "Boot")]
+        sg(
+            "HUD214", "HUD214_Demo", (s(14, 1), "90/01/00"), [(s(16, 1), "90/01/00", "1"), (s(15, 13), "90/04/61", "2")]
         ),
-        # Unklar: keine Software-Angaben
-        _qt_block("CAM", "0x71", (s(17, 1), "90/01.00"), []),
+        # Unklar: keine lesbare Software
+        sg("CAM_F", "CAM_F_Demo", (s(17, 1), "90/01/00"), [("??????????", "90/01/00", "1")]),
         # Unklar: HW in zwei Varianten, Software unbekannt
-        _qt_block("ECALL", "0x72", (s(19, 1), "90/01.00"), [(s(23, 99), "90/01.00", "Function")]),
+        sg("ECALL214", "ECALL214_Demo", (s(19, 1), "90/01/00"), [(s(23, 99), "90/01/00", "2")]),
         # Nicht in der Release-Konfiguration (Fahrwerk-Steuergerät)
-        _qt_block("ESP", "0x20", ("A0004440000", "88/01.00"), [("A0004440100", "88/01.00", "Function")]),
+        sg("ESP214", "ESP214_Demo", ("0004440000", "88/01/00"), [("0004440100", "88/01/00", "2")]),
     ]
-    html = (
-        "<html><head><meta charset='utf-8'><title>Kurztest BEISPIEL</title></head><body>"
-        "<p>BEISPIELDATEN – frei erfunden</p><table>"
-        "<tr><td>FIN</td><td>W1K0000000BEISPIEL</td></tr><tr><td>Datum</td><td>01.01.2090</td></tr>"
-        + "\n".join(bloecke)
-        + "</table></body></html>"
+
+
+KATEGORIE_TEXT = {"1": "Bootloader", "2": "Function"}
+
+
+def erzeuge_kurztest_vrx(ziel: Path, arch: str = "MB.OS1.0") -> Path:
+    """Erfundener Kurztest im Aufbau VDX 3.3.1 (wie DTS9-.vrx)."""
+    from xml.sax.saxutils import escape as x
+
+    teile = []
+    for nr, g in enumerate(_fahrzeug(arch), start=1):
+        sw = "".join(
+            f"<Software><Category>{k}</Category><PartNumber><PartNumberValue>{x(n)}</PartNumberValue></PartNumber>"
+            f"<Supplier><Code>0x0001</Code><Name>Beispiel</Name></Supplier><Version><VersionValue>{v}</VersionValue>"
+            "</Version></Software>"
+            for n, v, k in g["sw"]
+        )
+        dtc = "".join(
+            f"<DTC><Number>{c[1:]}</Number><SAENumber>{c}</SAENumber><Description>{x(t)}</Description></DTC>"
+            for c, t in g["dtc"]
+        )
+        teile.append(
+            f"<Component><ECUShortName>{g['name']}</ECUShortName>"
+            f"<LocationShortName>UDS_DoIP_{g['variante']}</LocationShortName>"
+            f"<LocationAccessKey>[Protocol]UDS_DoIP.[EcuBaseVariant]{g['name']}.[EcuVariant]{g['variante']}"
+            "</LocationAccessKey><CommunicationProtocol>UDS</CommunicationProtocol>"
+            f"<CommunicationState>6</CommunicationState><DiagnosticInfo><DiagnosticInfoValue>00{nr:04X}"
+            f"</DiagnosticInfoValue></DiagnosticInfo><DTCCount><DTCCountValue>{len(g['dtc'])}</DTCCountValue>"
+            f"</DTCCount>{'<DTCList>' + dtc + '</DTCList>' if dtc else ''}<SWHWInformation><Hardware><PartNumber>"
+            f"<PartNumberValue>{g['hw'][0]}</PartNumberValue></PartNumber><Supplier><Code>0x0001</Code>"
+            f"<Name>Beispiel</Name></Supplier><Version><VersionValue>{g['hw'][1]}</VersionValue></Version>"
+            f"</Hardware>{sw}</SWHWInformation></Component>"
+        )
+    # Komponente ohne Antwort (keine SWHWInformation)
+    teile.append(
+        "<Component><ECUShortName>RDK214</ECUShortName><LocationShortName>CAN_RDK214</LocationShortName>"
+        "<LocationAccessKey>[Protocol]CAN.[EcuBaseVariant]RDK214</LocationAccessKey>"
+        "<CommunicationProtocol>UDS</CommunicationProtocol><CommunicationState>2</CommunicationState></Component>"
     )
+    xml = (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<VehicleReport xmlns="http://www.daimler.com/xsd/vdx30" VDXVersion="3.3.1">'
+        "<ServiceTool><Name>DTS9</Name><Version>9.0</Version><UserID>BEISPIEL\\nutzer</UserID>"
+        "<ExecutionTime>2090-01-01T10:00:00.000+01:00</ExecutionTime><ProjectName>BR_999</ProjectName></ServiceTool>"
+        "<VehicleInformation><FiNASNumber>999-00001</FiNASNumber><IdentificationNumber>"
+        "<IdentificationNumberValue>W1K0000000BEISPIEL</IdentificationNumberValue></IdentificationNumber>"
+        "<ModelLineNumber>999</ModelLineNumber><Odo><OdoValue>12345</OdoValue></Odo></VehicleInformation>"
+        f"<ComponentList>{''.join(teile)}</ComponentList></VehicleReport>"
+    )
+    pfad = ziel / f"BEISPIEL_Kurztest_{arch}.vrx"
+    pfad.write_text(xml, encoding="utf-8")
+    return pfad
+
+
+def erzeuge_kurztest_html(ziel: Path, arch: str = "MB.OS1.0") -> Path:
+    """Erfundener Kurztest als HTML-Ansicht wie aus DTS9 (Ansichten Powertrain und Baureihe)."""
+
+    def kopf(*zellen: str) -> str:
+        return "<tr>" + "".join(f"<th>{z}</th>" if z else "<th />" for z in zellen) + "</tr>"
+
+    def zeile(*zellen: str) -> str:
+        return "<tr>" + "".join(f"<td>{z}</td>" if z else "<td />" for z in zellen) + "</tr>"
+
+    fahrzeug = _fahrzeug(arch)
+    teile = [
+        "<html><head><title>999-00001 ***out*** 01.01.2090 - 10:00:00</title><style>td{padding:2px}</style>"
+        "<script>function x(){return '<tr><td>ECU Name</td></tr>';}</script></head><body>",
+        "<p>BEISPIELDATEN – frei erfunden</p><table class='tg'>",
+        kopf("Odometer", "VIN", "Project Name", "Author Name", "Service Tool", "Version"),
+        zeile("12345", "W1K0000000BEISPIEL", "BR_999", "BEISPIEL\\nutzer", "DTS9", "9.0"),
+        "</table>",
+    ]
+    # Powertrain-Ansicht: anderer Aufbau, HW/SW in einem Feld; ein Steuergerät ohne Antwort
+    esp = fahrzeug[-1]
+    feld = " ".join(f"SW: {v} | {n}" for n, v, _ in esp["sw"]) + f" HW: {esp['hw'][1]} | {esp['hw'][0]}"
+    teile += [
+        "<table>",
+        kopf("ECU Name", "Variant", "Errors", "SW-Ver. / PartNumber"),
+        zeile(esp["name"], esp["variante"], "0", feld),
+        "</table>",
+        "<table>",
+        kopf("ECU Name", "Variant", "Errors", "SW-Ver. / PartNumber"),
+        zeile("RDK214", "", "", ""),
+        "</table>",
+    ]
+    # Baureihen-Ansicht: je Steuergerät Kopf- und Teiletabelle, danach Zusatzdienste (mit Störzahlen)
+    for nr, g in enumerate(fahrzeug, start=1):
+        teile += [
+            "<table title='BR:Componente'>",
+            kopf("ECU Name", "Variant", "Diagnostic Version", "Status Mask", "Number of Errors "),
+            zeile(g["name"], g["variante"], f"00{nr:04X}", "0x0C", str(len(g["dtc"]))),
+            "</table><br /><table><thead>",
+            kopf("", "Partnumber", "Version", "Supplier", "Category"),
+            "</thead><tbody><tr class='odd'><td rowspan='2'>HW</td></tr>",
+            zeile(g["hw"][0], g["hw"][1], "Beispiel / 0x0001", ""),
+            f"<tr class='even'><td rowspan='{len(g['sw']) + 1}'>SW</td></tr>",
+            *[zeile(f" {n} ", f" {v} ", "Beispiel / 0x0001", KATEGORIE_TEXT[k]) for n, v, k in g["sw"]],
+            "</tbody></table>",
+            "<table class='tableECUDetails'>",
+            kopf("Display Name", "Description", "Value", "Unit"),
+            zeile("Serial", "", "1234567890", ""),
+            zeile("Kalibrierung", "", "9998887776 12/34/56", ""),
+            "</table>",
+        ]
+    teile.append("</body></html>")
     pfad = ziel / f"BEISPIEL_Kurztest_{arch}.html"
-    pfad.write_text(html, encoding="utf-8")
+    pfad.write_text("\n".join(teile), encoding="utf-8")
     return pfad
 
 
@@ -268,7 +351,8 @@ def main(argv: list[str] | None = None) -> int:
     ziel.mkdir(parents=True, exist_ok=True)
     for arch in KENNZIFFER:
         print(erzeuge_release_konfig(arch, ziel))
-    print(erzeuge_kurztest(ziel))
+    print(erzeuge_kurztest_vrx(ziel))
+    print(erzeuge_kurztest_html(ziel))
     return 0
 
 

@@ -26,7 +26,7 @@ from qt_tool.modell import Kurztest, Teil
 SPALTEN = [
     "Status",
     "Steuergerät",
-    "Diagnoseadresse",
+    "Variante (Kurztest)",
     "HW-Partnummer (Fahrzeug)",
     "HW-Version",
     "Installierte Software (E-Stand)",
@@ -83,7 +83,7 @@ def zeile(erg: Ergebnis, idx: Index) -> dict[str, str]:
     return {
         "Status": erg.status,
         "Steuergerät": sg.name,
-        "Diagnoseadresse": sg.diag_adresse,
+        "Variante (Kurztest)": sg.variante,
         "HW-Partnummer (Fahrzeug)": _liste(sg.hw, "snr"),
         "HW-Version": _liste(sg.hw, "version"),
         "Installierte Software (E-Stand)": erg.aktuell.e_stand if erg.aktuell else "",

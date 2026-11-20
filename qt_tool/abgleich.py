@@ -345,8 +345,8 @@ def _bewerte_variante(
         erg.gruende.append(
             f"Hardware-Version weicht ab (Fahrzeug {hw_fzg.version}, Konfiguration {letzter_v.hw_teil.version})"
         )
-    if sg.fehler:
-        erg.gruende.append(f"Fehlerspeicher: {len(sg.fehler)} Eintrag/Einträge im Kurztest")
+    if anzahl := len(sg.fehler) or _zahl(sg.weitere.get("Anzahl Fehler")):
+        erg.gruende.append(f"Fehlerspeicher: {anzahl} Eintrag/Einträge im Kurztest")
 
     relevant = [t for t in sw_teile if t.schluessel in idx.sw_der_variante[variante]]
     fremd = [t for t in sw_teile if t.schluessel not in idx.sw_der_variante[variante] and t.schluessel in idx.sw]
@@ -403,6 +403,14 @@ def _bewerte_variante(
                 "Zuordnung nur über Hardware-Sachnummer; keine Software-Sachnummer passt." + zuordnung_zusatz
             )
             erg.kompatibilitaet = "installierte Software für diese Hardware nicht freigegeben/nicht gelistet"
+        if passend := _sw_passt_zu_anderer_hw(relevant, variante, idx):
+            e = idx.eintrag(passend)
+            erg.gruende.insert(
+                1,
+                f"Installierte Software entspricht exakt {idx.release_name(e)} dieser Variante – dort ist aber nur "
+                f"die Hardware {', '.join(t.snr for t in e.hw)} hinterlegt, nicht die verbaute",
+            )
+            erg.naechster_treffer = e
         if fremd:
             erg.gruende.append(
                 "Software-Sachnummer(n) gehören laut Konfiguration zu einer anderen Variante/Hardware: "
@@ -415,6 +423,27 @@ def _bewerte_variante(
     erg.begruendung = _begruendung(erg, idx)
     erg.fundstellen = _fundstellen(erg, idx)
     return erg
+
+
+def _sw_passt_zu_anderer_hw(relevant: list[Teil], variante: str, idx: Index) -> int | None:
+    """Neuester Eintrag der Variante (mit beliebiger HW), dessen Software exakt der installierten entspricht."""
+    if not relevant:
+        return None
+    treffer = None
+    for nr in idx.varianten[variante]:
+        e = idx.eintrag(nr)
+        im_eintrag = {t.schluessel: t.version_norm for t in e.sw}
+        passt = all(t.schluessel in im_eintrag and im_eintrag[t.schluessel] in (None, t.version_norm) for t in relevant)
+        if passt and (treffer is None or e.release_index > idx.eintrag(treffer).release_index):
+            treffer = nr
+    return treffer
+
+
+def _zahl(wert: str | None) -> int:
+    try:
+        return int(wert or 0)
+    except ValueError:
+        return 0
 
 
 def _aelter(relevant: list[Teil], letzter: Eintrag) -> bool:

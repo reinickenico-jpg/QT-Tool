@@ -104,22 +104,24 @@ def _badge(status: str) -> None:
 def bereich_kurztest() -> Kurztest | None:
     st.markdown("**Kurztest**")
     datei = st.file_uploader(
-        "Kurztest hier hineinziehen (.vrx / .html)",
-        type=["vrx", "html", "htm"],
+        "Kurztest hier hineinziehen (.vrx / .html / .zip)",
+        type=["vrx", "html", "htm", "zip"],
         key="upload_kurztest",
-        help="Die Datei wird nur auf diesem Rechner verarbeitet.",
+        help="Am besten die .vrx-Datei: enthält dieselben Daten wie die .html, wird aber in unter einer Sekunde "
+        "gelesen (.html: ca. 10 s). Ein ZIP mit beiden Dateien geht auch. Verarbeitung nur auf diesem Rechner.",
     )
     if datei is None:
         st.caption("Noch kein Kurztest geladen.")
         return None
     try:
-        kurztest = _kurztest_lesen(datei.getvalue(), datei.name)
+        with st.spinner("Lese Kurztest …"):
+            kurztest = _kurztest_lesen(datei.getvalue(), datei.name)
     except KurztestFehler as e:
         st.error(str(e), icon=":material/error:")
         return None
     st.caption(
-        f"{len(kurztest.steuergeraete)} Steuergeräte erkannt"
-        + "".join(f" · {k}: {v}" for k, v in kurztest.kopfdaten.items())
+        f"{len(kurztest.steuergeraete)} Steuergeräte mit HW-/SW-Daten ({kurztest.format.upper()})  \n"
+        + " · ".join(f"{k}: {v}" for k, v in kurztest.kopfdaten.items() if k != "Titel")
     )
     for h in kurztest.hinweise:
         st.warning(h, icon=":material/warning:")

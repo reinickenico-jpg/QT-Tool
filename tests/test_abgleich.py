@@ -25,7 +25,7 @@ def ergebnisse(kurztest, indizes):
 def test_architektur_ueber_sachnummern(kurztest, indizes):
     arch, gruende = erkenne_architektur(kurztest, indizes)
     assert arch == "MB.OS1.0"
-    assert any("MB.OS1.0: 6 Steuergeräte" in g for g in gruende)
+    assert any("MB.OS1.0: 7 Steuergeräte" in g for g in gruende)
 
 
 def test_architektur_nicht_eindeutig_ohne_treffer(indizes):
@@ -38,13 +38,14 @@ def test_architektur_nicht_eindeutig_ohne_treffer(indizes):
 @pytest.mark.parametrize(
     ("name", "status"),
     [
-        ("CIVIC", STATUS_AKTUELL),
-        ("DISPLAY_C", STATUS_UPDATE),
-        ("TEL", STATUS_AKTUELL),
-        ("HUD", STATUS_KONFLIKT),
-        ("CAM", STATUS_UNKLAR),
-        ("ECALL", STATUS_UNKLAR),
-        ("ESP", STATUS_OHNE),
+        ("CIVIC206", STATUS_AKTUELL),
+        ("DISP_C223", STATUS_UPDATE),
+        ("TELM", STATUS_AKTUELL),
+        ("TELM_B", STATUS_KONFLIKT),
+        ("HUD214", STATUS_KONFLIKT),
+        ("CAM_F", STATUS_UNKLAR),
+        ("ECALL214", STATUS_UNKLAR),
+        ("ESP214", STATUS_OHNE),
     ],
 )
 def test_status_je_steuergeraet(ergebnisse, name, status):
@@ -52,7 +53,7 @@ def test_status_je_steuergeraet(ergebnisse, name, status):
 
 
 def test_aktuell_mit_fundstelle(ergebnisse, indizes):
-    e = ergebnisse["CIVIC"]
+    e = ergebnisse["CIVIC206"]
     assert e.aktuell_releases == ["TR90/05"]
     assert e.update is False
     assert "Exakter Treffer" in e.zuordnung
@@ -62,7 +63,7 @@ def test_aktuell_mit_fundstelle(ergebnisse, indizes):
 
 
 def test_update_nennt_neueste_kompatible_software(ergebnisse, indizes):
-    e = ergebnisse["DISPLAY_C"]
+    e = ergebnisse["DISP_C223"]
     assert e.update is True
     assert e.aktuell_releases == ["TR90/01"]
     assert indizes["MB.OS1.0"].release_name(e.letzter_hw) == "TR90/05"
@@ -71,24 +72,24 @@ def test_update_nennt_neueste_kompatible_software(ergebnisse, indizes):
 
 
 def test_hardware_nicht_mehr_unterstuetzt(ergebnisse, indizes):
-    e = ergebnisse["TEL"]
+    e = ergebnisse["TELM"]
     assert indizes["MB.OS1.0"].release_name(e.letzter_hw) == "TR90/03"  # TR90/03a hat neue HW
     assert any("nicht mehr unterstützt" in g for g in e.gruende)
 
 
 def test_patchlevel_abweichung(ergebnisse):
-    e = ergebnisse["HUD"]
+    e = ergebnisse["HUD214"]
     assert any("Patchlevel stimmt nicht überein" in g for g in e.gruende)
     assert "Kein exakter Treffer über Patchlevel" in e.zuordnung
     assert e.naechster_treffer is not None
 
 
 def test_mehrdeutig_zeigt_kandidaten_und_wahl_loest_auf(kurztest, indizes, ergebnisse):
-    e = ergebnisse["ECALL"]
+    e = ergebnisse["ECALL214"]
     assert e.kandidaten == ["DEMO ECALL › ECALL DEMO ECE", "DEMO ECALL › ECALL DEMO NAFTA"]
-    pos = [s.name for s in kurztest.steuergeraete].index("ECALL")
+    pos = [s.name for s in kurztest.steuergeraete].index("ECALL214")
     wahl = {sg_schluessel(pos, kurztest.steuergeraete[pos]): "DEMO ECALL › ECALL DEMO NAFTA"}
-    neu = {x.sg.name: x for x in abgleich(kurztest, indizes["MB.OS1.0"], wahl)}["ECALL"]
+    neu = {x.sg.name: x for x in abgleich(kurztest, indizes["MB.OS1.0"], wahl)}["ECALL214"]
     assert neu.variante_id == "DEMO ECALL › ECALL DEMO NAFTA"
     assert "vom Nutzer gewählt" in neu.zuordnung
 
@@ -123,6 +124,30 @@ def test_keine_kompatibilitaet_ohne_hw_eintrag(indizes):
     assert "9930700001" in {t.schluessel for t in e.aktuell.hw}
 
 
+def test_name_aus_kurztest_zuordnung_ueber_sachnummer(ergebnisse):
+    """Angezeigt wird der Kurztest-Name (CIVIC206), zugeordnet über die Sachnummern zur Variante der Konfiguration."""
+    e = ergebnisse["CIVIC206"]
+    assert e.sg.name == "CIVIC206"
+    assert e.variante_id == "DEMO CIVIC › CIVIC DEMO ECE"
+
+
+def test_software_einer_anderen_hardware(ergebnisse):
+    e = ergebnisse["TELM_B"]
+    assert any("entspricht exakt TR90/05" in g and "A9931100002" in g for g in e.gruende)
+
+
+def test_fehlerspeicher_aus_html_anzahl(kurztest_html, indizes):
+    civic = next(s for s in kurztest_html.steuergeraete if s.name == "CIVIC206")
+    assert any("Fehlerspeicher: 1" in g for g in vergleiche_sg(civic, indizes["MB.OS1.0"]).gruende)
+
+
+def test_html_und_vrx_gleiches_ergebnis(kurztest, kurztest_html, indizes):
+    def status(kt):
+        return {e.sg.name: (e.status, e.aktuell_releases) for e in abgleich(kt, indizes["MB.OS1.0"])}
+
+    assert status(kurztest) == status(kurztest_html)
+
+
 def test_zaehlung(ergebnisse):
     z = zaehle(list(ergebnisse.values()))
-    assert z == {STATUS_KONFLIKT: 1, STATUS_UPDATE: 1, STATUS_UNKLAR: 2, STATUS_AKTUELL: 2, STATUS_OHNE: 1}
+    assert z == {STATUS_KONFLIKT: 2, STATUS_UPDATE: 1, STATUS_UNKLAR: 2, STATUS_AKTUELL: 2, STATUS_OHNE: 1}

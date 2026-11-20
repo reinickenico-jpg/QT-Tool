@@ -21,7 +21,7 @@ def test_tabellenzeile_hat_alle_spalten(kurztest, indizes):
 def test_excel_exporte(kurztest, indizes):
     idx = indizes["MB.OS1.0"]
     erg = _ergebnisse(kurztest, indizes)
-    erwartet = {"vollstaendig": 7, "abweichungen": 4, "updates": 1, "unklar": 3}
+    erwartet = {"vollstaendig": 8, "abweichungen": 5, "updates": 1, "unklar": 4}
     for art, anzahl in erwartet.items():
         wb = openpyxl.load_workbook(io.BytesIO(excel_export(erg, idx, kurztest, art)))
         ws = wb["Ergebnis"]
@@ -33,10 +33,10 @@ def test_excel_exporte(kurztest, indizes):
 def test_filter_und_suche(kurztest, indizes):
     idx = indizes["MB.OS1.0"]
     erg = _ergebnisse(kurztest, indizes)
-    assert len(filtere(erg, idx)) == 6  # ohne Bezug ausgeblendet
-    assert len(filtere(erg, idx, ohne_bezug_ausblenden=False)) == 7
-    assert [e.sg.name for e in filtere(erg, idx, status=STATUS_UPDATE)] == ["DISPLAY_C"]
-    assert [e.sg.name for e in filtere(erg, idx, status=STATUS_OHNE)] == ["ESP"]
-    assert [e.sg.name for e in filtere(erg, idx, suche="993 140")] == ["HUD"]  # Sachnummer mit Leerzeichen
-    assert [e.sg.name for e in filtere(erg, idx, update="Ja")] == ["DISPLAY_C"]
-    assert {e.sg.name for e in filtere(erg, idx, releases=["TR90/03"])} == {"TEL"}
+    assert len(filtere(erg, idx)) == 7  # ohne Bezug ausgeblendet
+    assert len(filtere(erg, idx, ohne_bezug_ausblenden=False)) == 8
+    assert [e.sg.name for e in filtere(erg, idx, status=STATUS_UPDATE)] == ["DISP_C223"]
+    assert [e.sg.name for e in filtere(erg, idx, status=STATUS_OHNE)] == ["ESP214"]
+    assert [e.sg.name for e in filtere(erg, idx, suche="993 140")] == ["HUD214"]  # Sachnummer mit Leerzeichen
+    assert [e.sg.name for e in filtere(erg, idx, update="Ja")] == ["DISP_C223"]
+    assert {e.sg.name for e in filtere(erg, idx, releases=["TR90/03"])} == {"TELM", "TELM_B"}
