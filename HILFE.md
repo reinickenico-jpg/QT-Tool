@@ -99,6 +99,15 @@ Sachnummer verglichen (Hinweis in der Bewertung).
 | Zusätzliche Informationen | Zeilen aus dem **Notizfeld** des Releases (oben neben dem Release-Namen), die dieses Steuergerät betreffen |
 | Bemerkung / Begründung | Abweichungen und wie die Zuordnung erfolgt ist |
 
+## Analysebericht je Fahrzeug
+
+Unten unter *Analysebericht je Fahrzeug* auf **Analysebericht (HTML)** klicken. Der Bericht enthält
+Fahrzeugdaten, verwendete Release-Konfiguration und Linie, die Zusammenfassung, alle Steuergeräte mit
+**Handlungsbedarf** (Konflikt, Update, Unklar) samt Empfehlung und Begründung sowie die aktuellen Steuergeräte.
+
+**Als PDF:** Datei im Browser öffnen, oben rechts *Drucken / als PDF speichern* (oder Strg+P) und als Drucker
+„Als PDF speichern“ wählen. Der Bericht braucht kein Internet und keine weiteren Dateien.
+
 ## Detailansicht
 
 Zeile in der Tabelle anklicken. Die Detailansicht zeigt: aktuell im Fahrzeug, gefundener Release-Stand,

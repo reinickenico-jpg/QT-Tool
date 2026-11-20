@@ -22,6 +22,7 @@ Bedienung: [`HILFE.md`](HILFE.md)
   Fundstellen (Datei, Blatt, Release-Spalte, Zeile).
 - Dashboard mit anklickbaren Zahlen, Suche, Filter, Detailansicht, manuelle Variantenwahl bei Mehrdeutigkeit.
 - Excel-Export: vollständig, nur Abweichungen, nur Updates, unklar/nicht kompatibel.
+- Kompakter Analysebericht je Fahrzeug als eigenständige HTML-Datei (im Browser als PDF druckbar).
 
 ## Fachliche Regeln (abgestimmt)
 
@@ -70,6 +71,7 @@ python -m pytest
 | `qt_tool/kurztest.py` | Kurztest einlesen: VRX (VDX 3.x aus DTS9), HTML-Ansicht, ZIP; Rückfall für andere Aufbauten |
 | `qt_tool/abgleich.py` | Abgleich, Status, Begründung, Fundstellen |
 | `qt_tool/export.py` | Tabellenzeilen, Filter, Excel-Export |
+| `qt_tool/bericht.py` | Analysebericht je Fahrzeug (HTML, druckbar als PDF) |
 | `qt_tool/speicher.py` | lokale Ablage der Konfigurationen und Zuordnungen |
 | `app.py` | Oberfläche (Streamlit) – nur Anzeige, keine Logik |
 
@@ -97,4 +99,4 @@ Arbeitsweise, Branches, Commits und Releases: siehe [`CLAUDE.md`](CLAUDE.md).
 
 1. Weitere echte Kurztests (andere Baureihen, MB.OS-Fahrzeuge) gegenprüfen.
 2. Windows-exe (PyInstaller) und Release-Workflow für den Bau ergänzen.
-3. Optional: kompakter Analysebericht (PDF/HTML) je Fahrzeug.
+3. Datenpakete ohne eigene Hardware (Betriebsanleitung, Carline-Bilder, Sound-, Navi-Daten) mit abgleichen.

@@ -29,6 +29,7 @@ from qt_tool.abgleich import (
     sg_schluessel,
     zaehle,
 )
+from qt_tool.bericht import erstelle_bericht
 from qt_tool.export import EXPORTE, SPALTEN, excel_export, filtere, zeile
 from qt_tool.kurztest import KurztestFehler, lese_kurztest
 from qt_tool.modell import ARCHITEKTUREN, Eintrag, Kurztest, ReleaseKonfig, Teil
@@ -521,6 +522,22 @@ def bereich_export(ergebnisse: list[Ergebnis], idx: Index, kurztest: Kurztest, z
             width="stretch",
             key=f"export_{art}",
         )
+    st.markdown("**Analysebericht je Fahrzeug**")
+    c1, c2 = st.columns([1, 3])
+    c1.download_button(
+        "Analysebericht (HTML)",
+        data=lambda: erstelle_bericht(ergebnisse, idx, kurztest, ziel_linie).encode("utf-8"),
+        file_name=f"{basis}_Analysebericht.html",
+        mime="text/html",
+        icon=":material/summarize:",
+        on_click="ignore",
+        width="stretch",
+        key="export_bericht",
+    )
+    c2.caption(
+        "Kompakter Bericht mit Fahrzeugdaten, Zusammenfassung, Handlungsbedarf und Empfehlungen. Im Browser öffnen "
+        "und über „Drucken → Als PDF speichern“ als PDF ablegen."
+    )
 
 
 def seitenleiste() -> None:
