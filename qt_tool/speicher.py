@@ -13,6 +13,7 @@ from __future__ import annotations
 import gzip
 import json
 import os
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from qt_tool.modell import ARCHITEKTUREN, ReleaseKonfig
@@ -41,10 +42,70 @@ def _atomar_schreiben(pfad: Path, inhalt: bytes) -> None:
     tmp.replace(pfad)
 
 
+@dataclass
+class KonfigInfo:
+    """Kurzinfo zu einer gespeicherten Konfiguration (für Statuskarten) – lädt in Millisekunden. Die vollständige
+    Konfiguration (bis ~25 MB) wird erst für den Abgleich geladen."""
+
+    architektur: str
+    dateiname: str
+    blatt: str
+    architektur_quelle: str
+    hochgeladen: str
+    datei_hash: str
+    neuester_release: str
+    anzahl_releases: int
+    versionsstand: dict[str, str] = field(default_factory=dict)
+    hinweise: list[str] = field(default_factory=list)
+    struktur: dict[str, object] = field(default_factory=dict)
+
+    @classmethod
+    def aus_konfig(cls, k: ReleaseKonfig) -> KonfigInfo:
+        neuester = k.neuester_release()
+        return cls(
+            architektur=k.architektur,
+            dateiname=k.dateiname,
+            blatt=k.blatt,
+            architektur_quelle=k.architektur_quelle,
+            hochgeladen=k.hochgeladen,
+            datei_hash=k.datei_hash,
+            neuester_release=neuester.name if neuester else "",
+            anzahl_releases=len(k.befuellte_releases()),
+            versionsstand=dict(k.versionsstand),
+            hinweise=list(k.hinweise),
+            struktur=dict(k.struktur),
+        )
+
+
 def speichere_konfig(konfig: ReleaseKonfig, original: bytes) -> None:
     daten = {"format": FORMAT_VERSION, "konfig": konfig.als_dict()}
-    _atomar_schreiben(_dateiname(konfig.architektur, ".json.gz"), gzip.compress(json.dumps(daten).encode("utf-8")))
+    # gzip-Stufe 1: kaum größer als Stufe 9, aber ein Vielfaches schneller geschrieben
+    inhalt = gzip.compress(json.dumps(daten).encode("utf-8"), compresslevel=1)
+    _atomar_schreiben(_dateiname(konfig.architektur, ".json.gz"), inhalt)
     _atomar_schreiben(_dateiname(konfig.architektur, ".xlsx"), original)
+    _speichere_info(KonfigInfo.aus_konfig(konfig))
+
+
+def _speichere_info(info: KonfigInfo) -> None:
+    daten = {"format": FORMAT_VERSION, "info": asdict(info)}
+    _atomar_schreiben(_dateiname(info.architektur, ".info.json"), json.dumps(daten, ensure_ascii=False).encode("utf-8"))
+
+
+def lade_info(architektur: str) -> KonfigInfo | None:
+    """Kurzinfo laden; fehlt sie (Ablage einer älteren Version), aus der vollständigen Konfiguration erzeugen."""
+    pfad = _dateiname(architektur, ".info.json")
+    try:
+        daten = json.loads(pfad.read_text(encoding="utf-8"))
+        if daten.get("format") == FORMAT_VERSION:
+            return KonfigInfo(**daten["info"])
+    except (OSError, ValueError, TypeError):
+        pass
+    konfig = lade_konfig(architektur)
+    if konfig is None:
+        return None
+    info = KonfigInfo.aus_konfig(konfig)
+    _speichere_info(info)
+    return info
 
 
 def lade_konfig(architektur: str) -> ReleaseKonfig | None:
@@ -92,7 +153,7 @@ def stand(architektur: str) -> float:
 
 
 def entferne_konfig(architektur: str) -> None:
-    for endung in (".json.gz", ".xlsx"):
+    for endung in (".json.gz", ".xlsx", ".info.json"):
         _dateiname(architektur, endung).unlink(missing_ok=True)
 
 

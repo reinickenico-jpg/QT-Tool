@@ -1,4 +1,5 @@
 # Laufzeit-Abhängigkeiten
-openpyxl>=3.1   # Excel lesen/schreiben (Release-Konfigurationen, Export)
+openpyxl>=3.1   # Excel schreiben (Export) und Rückfall beim Lesen
+python-calamine>=0.3 # Release-Konfigurationen etwa 10x schneller lesen
 pandas>=2.0     # Tabellen in der Oberfläche
 streamlit>=1.67 # Oberfläche im Browser (lokal)

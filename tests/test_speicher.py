@@ -72,3 +72,17 @@ def test_uebernehme_konfig_xls_und_fremde_datei(tmp_path, monkeypatch):
     monkeypatch.setenv("QT_TOOL_DATEN", str(tmp_path))
     assert speicher.uebernehme_konfig(b"x", "alt.xls")[1] == "fehler"
     assert speicher.uebernehme_konfig(b"kein excel", "kaputt.xlsx")[1] == "fehler"
+
+
+def test_kurzinfo_ohne_vollstaendiges_laden(tmp_path, monkeypatch, konfigs, beispielordner):
+    """Statuskarten brauchen nur die Kurzinfo; fehlt sie (ältere Ablage), wird sie erzeugt."""
+    monkeypatch.setenv("QT_TOOL_DATEN", str(tmp_path))
+    k = konfigs["MB.OS1.0"]
+    speicher.speichere_konfig(k, (beispielordner / k.dateiname).read_bytes())
+    info = speicher.lade_info("MB.OS1.0")
+    assert (info.dateiname, info.neuester_release, info.anzahl_releases) == (k.dateiname, "TR90/05", 4)
+    (tmp_path / "konfig_MB.OS1.0.info.json").unlink()
+    assert speicher.lade_info("MB.OS1.0").datei_hash == k.datei_hash
+    assert (tmp_path / "konfig_MB.OS1.0.info.json").exists()
+    speicher.entferne_konfig("MB.OS1.0")
+    assert speicher.lade_info("MB.OS1.0") is None

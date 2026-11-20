@@ -171,6 +171,53 @@ def _als_text(wert: object) -> str:
 # --------------------------------------------------------------------------- Einlesen
 
 
+def _lies_blatt(inhalt: bytes, zuordnung: Zuordnung) -> tuple[str, list[list]]:
+    """Blatt mit den Release-Blöcken finden und alle Zellwerte lesen.
+
+    Bevorzugt python-calamine (Rust, etwa zehnmal schneller als openpyxl – G20i2: ~1,5 s statt ~14 s); fehlt das
+    Paket oder scheitert es an einer Datei, wird openpyxl verwendet. Leere Zellen sind in beiden Fällen ``None``.
+    """
+    try:
+        import python_calamine
+    except ImportError:
+        python_calamine = None
+    if python_calamine is not None:
+        try:
+            return _lies_blatt_calamine(python_calamine, inhalt, zuordnung)
+        except StrukturFehler:
+            raise
+        except Exception:  # noqa: BLE001 – unbekannte Dateieigenheit: mit openpyxl erneut versuchen
+            pass
+    mappe = _arbeitsmappe(inhalt)
+    try:
+        blattname = _waehle_blatt(mappe, zuordnung)
+        return blattname, [list(z) for z in mappe[blattname].iter_rows(values_only=True)]
+    finally:
+        mappe.close()
+
+
+def _lies_blatt_calamine(python_calamine, inhalt: bytes, zuordnung: Zuordnung) -> tuple[str, list[list]]:
+    mappe = python_calamine.CalamineWorkbook.from_filelike(io.BytesIO(inhalt))
+
+    def werte(zeilen: list[list]) -> list[list]:
+        return [[None if v == "" else v for v in z] for z in zeilen]
+
+    if zuordnung.blatt and zuordnung.blatt in mappe.sheet_names:
+        blattname = zuordnung.blatt
+    else:
+        blattname, beste_anzahl = "", 0
+        for name in mappe.sheet_names:
+            kopf = werte(mappe.get_sheet_by_name(name).to_python(skip_empty_area=False, nrows=SUCHZEILEN_KOPF))
+            _, anzahl = _finde_kopfzeile(kopf)
+            if anzahl > beste_anzahl:
+                blattname, beste_anzahl = name, anzahl
+        if not blattname:
+            raise StrukturFehler(
+                "Kein Tabellenblatt mit Release-Blöcken gefunden (Kopfzeile mit „E-Stand“, „SNR“, „Version“ fehlt)."
+            )
+    return blattname, werte(mappe.get_sheet_by_name(blattname).to_python(skip_empty_area=False))
+
+
 def _arbeitsmappe(datei: bytes | Path) -> openpyxl.Workbook:
     quelle = io.BytesIO(datei) if isinstance(datei, bytes) else datei
     return openpyxl.load_workbook(quelle, read_only=True, data_only=True)
@@ -212,12 +259,7 @@ def lese_release_konfig(
     if not isinstance(zuordnung, Zuordnung):
         zuordnung = Zuordnung.aus_dict(zuordnung)
     inhalt = datei if isinstance(datei, bytes) else Path(datei).read_bytes()
-    mappe = _arbeitsmappe(inhalt)
-    try:
-        blattname = _waehle_blatt(mappe, zuordnung)
-        zeilen = [list(z) for z in mappe[blattname].iter_rows(values_only=True)]
-    finally:
-        mappe.close()
+    blattname, zeilen = _lies_blatt(inhalt, zuordnung)
 
     breite = max((len(z) for z in zeilen), default=0)
     for z in zeilen:

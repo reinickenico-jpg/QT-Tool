@@ -255,9 +255,46 @@ class _Zeilensammler(HTMLParser):
             self._stapel[-1]["zelle"].append(data)
 
 
+_SG_KOPF_HTML = re.compile(r"<t[hd][^>]*>\s*ECU\s+Name\s*</t[hd]>", re.IGNORECASE)
+_KOPF_HTML = re.compile(r"<t[hd][^>]*>\s*(?:VIN|Odometer|FIN)\s*</t[hd]>", re.IGNORECASE)
+_TITEL_HTML = re.compile(r"<title>.*?</title>", re.IGNORECASE | re.DOTALL)
+MAX_ABSTAND_TEILETABELLE = 2000  # Zeichen zwischen Steuergeräte-Kopf und Teiletabelle (DTS9: wenige)
+
+
+def _relevante_ausschnitte(html: str) -> str:
+    """Nur die für den Abgleich nötigen Tabellen herausschneiden (Kopfdaten, je Steuergerät Kopf- und
+    Teiletabelle). DTS9-HTML ist bis ~65 MB groß, der Großteil sind Fehlerspeicher-Details, Codierungen und
+    Skripte – das Zerlegen dauerte ~10 s. Ohne erkennbare Struktur wird das ganze HTML verwendet."""
+    treffer = [m.start() for m in _SG_KOPF_HTML.finditer(html)]
+    if not treffer:
+        return html
+    teile = []
+    if titel := _TITEL_HTML.search(html[:20000]):
+        teile.append(titel.group(0))
+    if kopf := _KOPF_HTML.search(html, 0, treffer[0]):
+        start = html.rfind("<table", 0, kopf.start())
+        ende = html.find("</table>", kopf.start())
+        if start >= 0 and ende >= 0:
+            teile.append(html[start : ende + 8])
+    for i, pos in enumerate(treffer):
+        grenze = treffer[i + 1] if i + 1 < len(treffer) else len(html)
+        start = html.rfind("<table", 0, pos)
+        ende = html.find("</table>", pos, grenze)
+        if start < 0 or ende < 0:
+            return html  # unerwarteter Aufbau: sicherheitshalber alles zerlegen
+        ende += 8
+        naechste = html.find("<table", ende, grenze)
+        if 0 <= naechste - ende <= MAX_ABSTAND_TEILETABELLE:
+            ende_teile = html.find("</table>", naechste, grenze)
+            if ende_teile >= 0:
+                ende = ende_teile + 8
+        teile.append(html[start:ende])
+    return "<html><body>" + "\n".join(teile) + "</body></html>"
+
+
 def _lese_html(html: str, hinweise: list[str]) -> tuple[dict[str, str], list[KurztestSG]]:
     sammler = _Zeilensammler()
-    sammler.feed(html)
+    sammler.feed(_relevante_ausschnitte(html))
     sammler.close()
     zeilen = sammler.zeilen
     kopf = _html_kopfdaten(zeilen)
