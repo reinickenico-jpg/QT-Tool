@@ -1,0 +1,1 @@
+# Laufzeit-Abhängigkeiten des Tools (mit Mindestversion, z. B. pandas>=2.0)

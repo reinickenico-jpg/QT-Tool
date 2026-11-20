@@ -1,0 +1,14 @@
+# Zentrale Einstellungen für die Prüfwerkzeuge – lokal und in GitHub Actions gleich.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+# F = Fehler (ungenutzte Importe, undefinierte Namen), E9 = Syntaxfehler, B = typische Fehlerquellen,
+# I = sortierte Importe, UP = moderne Python-Schreibweise, SIM = unnötig komplizierter Code
+select = ["F", "E9", "B", "I", "UP", "SIM"]
+ignore = ["B008", "B905"]

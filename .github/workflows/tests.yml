@@ -1,0 +1,28 @@
+# Prüft jeden Pull Request und jeden Push auf main: Code-Prüfung (ruff) und alle Tests (pytest).
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Abhängigkeiten installieren
+        run: pip install -r requirements-dev.txt
+      - name: Code-Prüfung
+        run: ruff check .
+      - name: Formatierung
+        run: ruff format --check .
+      - name: Tests
+        run: python -m pytest -q

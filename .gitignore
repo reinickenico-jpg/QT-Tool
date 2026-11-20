@@ -1,0 +1,36 @@
+# Echte Firmendaten NIEMALS ins Repository (bei Bedarf um weitere Formate ergänzen):
+*.xlsx
+*.xlsm
+*.xls
+*.csv
+daten/
+*.db
+*.sqlite
+*.sqlite3
+
+# Zugangsdaten
+.env
+.env.*
+!.env.beispiel
+*.pem
+*.key
+secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Gebautes Programm
+build/
+dist/
+*.spec.bak
+
+# Editor / Betriebssystem
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

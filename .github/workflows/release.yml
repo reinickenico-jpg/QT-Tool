@@ -1,0 +1,36 @@
+# Legt bei jedem Versions-Tag (v1.2.3) ein GitHub-Release an – mit dem passenden Abschnitt aus CHANGELOG.md.
+# Bricht ab, wenn Tag und Datei VERSION nicht zusammenpassen (Lehre aus NIRE_Projekt v0.11.1 / v0.12.0).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag passt zu VERSION
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} passt nicht zu VERSION (${version}). Erst den Release-PR mergen, dann den Tag auf diesen Merge-Commit setzen."
+            exit 1
+          fi
+      - name: Release-Notizen aus CHANGELOG.md
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" {an=1; next}
+            an && /^## \[/ {exit}
+            an {print}
+          ' CHANGELOG.md > notizen.md
+          test -s notizen.md || { echo "::error::Kein Abschnitt [${version}] in CHANGELOG.md"; exit 1; }
+      - name: Release anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" --title "QT-Tool ${GITHUB_REF_NAME}" --notes-file notizen.md
