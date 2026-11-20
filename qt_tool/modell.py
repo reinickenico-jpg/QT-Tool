@@ -6,6 +6,7 @@ diesem Modell – unterschiedliche Feldnamen oder Spaltenlagen spielen danach ke
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 
 from qt_tool.normalisieren import snr_schluessel, version_schluessel
@@ -51,6 +52,14 @@ class Teil:
         return " ".join(teile)
 
 
+_LINIE = re.compile(r"\b(20\d\d-\d+\.\d+)\b")
+
+
+def linie_sortierwert(linie: str) -> tuple[int, ...]:
+    """„2026-4.0“ -> (2026, 4, 0); ohne Linie -> () (gilt als älteste)."""
+    return tuple(int(z) for z in re.findall(r"\d+", linie))
+
+
 @dataclass
 class Release:
     """Ein Release-Block (Spaltengruppe) der Release-Konfiguration."""
@@ -61,6 +70,16 @@ class Release:
     notiz: str = ""  # Notizfeld neben dem Release-Namen („zusätzliche Informationen“)
     meta: dict[str, str] = field(default_factory=dict)  # Project, EE, Release Start …
     befuellt: bool = False
+
+    @property
+    def linie(self) -> str:
+        """MB.OS-Linie (z. B. „2027-1.0“) aus „MB.OS Release In Focus“ oder dem Release-Namen; sonst leer.
+        Nur MB.OS1.0 führt parallele Linien – dort gilt die Spaltenreihenfolge nur innerhalb einer Linie."""
+        for schluessel, wert in self.meta.items():
+            if "focus" in schluessel.lower() and (m := _LINIE.search(wert)):
+                return m.group(1)
+        m = _LINIE.search(self.name)
+        return m.group(1) if m else ""
 
 
 @dataclass
@@ -110,6 +129,11 @@ class ReleaseKonfig:
     def neuester_release(self) -> Release | None:
         befuellt = self.befuellte_releases()
         return max(befuellt, key=lambda r: r.index) if befuellt else None
+
+    def linien(self) -> list[str]:
+        """Parallele Linien (älteste zuerst). Leer, wenn die Konfiguration keine Linien führt."""
+        linien = {r.linie for r in self.befuellte_releases() if r.linie}
+        return sorted(linien, key=linie_sortierwert) if len(linien) > 1 else []
 
     def release(self, index: int) -> Release:
         return self.releases[index]

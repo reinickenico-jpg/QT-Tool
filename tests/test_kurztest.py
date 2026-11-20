@@ -6,7 +6,7 @@ import pytest
 from qt_tool.kurztest import KurztestFehler, lese_kurztest
 from qt_tool.modell import FL_SW, FUNKTIONS_SW
 
-NAMEN = ["CIVIC206", "DISP_C223", "TELM", "TELM_B", "HUD214", "CAM_F", "ECALL214", "ESP214"]
+NAMEN = ["CIVIC206", "DISP_C223", "TELM", "TELM_B", "HUD214", "CAM_F", "ECALL214", "AUD223", "ESP214"]
 
 
 def _signatur(kt):

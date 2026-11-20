@@ -288,6 +288,23 @@ def bereich_architektur(kurztest: Kurztest, indizes: dict[str, Index]) -> str | 
     return arch
 
 
+def bereich_linie(idx: Index) -> str | None:
+    """Auswahl der MB.OS-Linie (nur wenn die Konfiguration parallele Linien führt)."""
+    linien = idx.konfig.linien()
+    if not linien:
+        return None
+    automatisch = "Automatisch – Linie des installierten Stands"
+    wahl = st.selectbox(
+        "MB.OS-Linie für „neuester kompatibler Stand“",
+        [automatisch, *linien[::-1]],
+        key=f"linie_{idx.konfig.datei_hash[:12]}",
+        help="Die Release-Konfiguration führt parallele Linien. Innerhalb einer Linie gilt: rechte Spalte = neuer. "
+        "Automatisch nimmt je Steuergerät die Linie, zu der der installierte Stand passt; neuere Linien mit "
+        "anderem Stand werden als Hinweis gezeigt. Eine feste Linie wählen, wenn auf diese Linie geflasht werden soll.",
+    )
+    return None if wahl == automatisch else wahl
+
+
 def bereich_dashboard(ergebnisse: list[Ergebnis]) -> str | None:
     zahlen = zaehle(ergebnisse)
     mit_bezug = len(ergebnisse) - zahlen[STATUS_OHNE]
@@ -444,6 +461,27 @@ def bereich_detail(erg: Ergebnis, idx: Index, position: int) -> None:
             else:
                 st.caption("–")
 
+        if erg.je_linie:
+            st.markdown("**Neuester Stand je MB.OS-Linie** (mit dieser Hardware)")
+            if erg.linie:
+                st.caption(f"Bewertet in Linie {erg.linie} ({erg.linie_quelle}).")
+            st.dataframe(
+                pd.DataFrame(
+                    [
+                        {
+                            "Linie": lin or "ohne Linie",
+                            "Neuester Release": idx.release_name(e),
+                            "E-Stand": e.e_stand,
+                            "Software": _teile(e.sw),
+                            "": "verwendet" if lin == erg.linie else "",
+                        }
+                        for lin, e in reversed(erg.je_linie)
+                    ]
+                ),
+                hide_index=True,
+                width="stretch",
+            )
+
         st.markdown("**Zusätzliche Informationen** (Notizfeld des Releases)")
         if erg.zusatzinfo:
             st.warning(erg.zusatzinfo, icon=":material/campaign:")
@@ -468,14 +506,14 @@ def bereich_detail(erg: Ergebnis, idx: Index, position: int) -> None:
                 st.text("\n".join(sg.fehler))
 
 
-def bereich_export(ergebnisse: list[Ergebnis], idx: Index, kurztest: Kurztest) -> None:
+def bereich_export(ergebnisse: list[Ergebnis], idx: Index, kurztest: Kurztest, ziel_linie: str | None) -> None:
     st.markdown("**Export (Excel)**")
     spalten = st.columns(len(EXPORTE))
     basis = kurztest.dateiname.rsplit(".", 1)[0]
     for sp, (art, (titel, _)) in zip(spalten, EXPORTE.items()):
         sp.download_button(
             titel,
-            data=lambda a=art: excel_export(ergebnisse, idx, kurztest, a),
+            data=lambda a=art: excel_export(ergebnisse, idx, kurztest, a, ziel_linie),
             file_name=f"{basis}_Abgleich_{art}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             icon=":material/download:",
@@ -536,7 +574,8 @@ def main() -> None:
     if not arch:
         return
     idx = indizes[arch]
-    ergebnisse = abgleich(kurztest, idx, st.session_state["wahl"])
+    ziel_linie = bereich_linie(idx)
+    ergebnisse = abgleich(kurztest, idx, st.session_state["wahl"], ziel_linie)
 
     st.divider()
     status = bereich_dashboard(ergebnisse)
@@ -544,7 +583,7 @@ def main() -> None:
     if auswahl is not None:
         bereich_detail(auswahl, idx, next(i for i, e in enumerate(ergebnisse) if e is auswahl))
     st.divider()
-    bereich_export(ergebnisse, idx, kurztest)
+    bereich_export(ergebnisse, idx, kurztest, ziel_linie)
 
 
 main()

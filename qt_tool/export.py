@@ -38,6 +38,8 @@ SPALTEN = [
     "Neueste kompatible SW-Partnummer",
     "Neuestes kompatibles Patchlevel",
     "Neuester kompatibler Release-Stand",
+    "MB.OS-Linie",
+    "Neuere Linie mit anderem Stand",
     "Update verfügbar",
     "Kompatibilität",
     "Variante (Release-Konfiguration)",
@@ -95,6 +97,10 @@ def zeile(erg: Ergebnis, idx: Index) -> dict[str, str]:
         "Neueste kompatible SW-Partnummer": _liste(erg.neueste_sw, "snr"),
         "Neuestes kompatibles Patchlevel": _liste(erg.neueste_sw, "version"),
         "Neuester kompatibler Release-Stand": letzter_name,
+        "MB.OS-Linie": erg.linie,
+        "Neuere Linie mit anderem Stand": "\n".join(
+            f"{lin}: {e.e_stand or '–'} ({idx.release_name(e)})" for lin, e in erg.neuere_linien
+        ),
         "Update verfügbar": {True: "Ja", False: "Nein", None: "–"}[erg.update],
         "Kompatibilität": erg.kompatibilitaet,
         "Variante (Release-Konfiguration)": erg.variante_id or "\n".join(erg.kandidaten[:5]),
@@ -103,7 +109,13 @@ def zeile(erg: Ergebnis, idx: Index) -> dict[str, str]:
     }
 
 
-def excel_export(ergebnisse: list[Ergebnis], idx: Index, kurztest: Kurztest, art: str = "vollstaendig") -> bytes:
+def excel_export(
+    ergebnisse: list[Ergebnis],
+    idx: Index,
+    kurztest: Kurztest,
+    art: str = "vollstaendig",
+    ziel_linie: str | None = None,
+) -> bytes:
     titel, filter_ = EXPORTE[art]
     auswahl = sorted(
         (e for e in ergebnisse if filter_(e)), key=lambda e: (STATUS_REIHENFOLGE.index(e.status), e.sg.name)
@@ -140,12 +152,18 @@ def excel_export(ergebnisse: list[Ergebnis], idx: Index, kurztest: Kurztest, art
         ("Stand der Konfiguration", stand),
         ("Tabellenblatt", konfig.blatt),
         ("Neuester Release", konfig.neuester_release().name if konfig.neuester_release() else ""),
+        *(
+            [("MB.OS-Linie", ziel_linie or "automatisch (Linie des installierten Stands je Steuergerät)")]
+            if konfig.linien()
+            else []
+        ),
         ("Steuergeräte im Export", str(len(auswahl))),
         ("", ""),
         ("Status", "Bedeutung"),
         *[(s, STATUS_ERKLAERUNG[s]) for s in STATUS_REIHENFOLGE],
         ("", ""),
         ("Hinweis", "Reihenfolge der Releases = Spaltenreihenfolge der Release-Konfiguration (rechts = neuer)."),
+        ("", "Bei parallelen MB.OS-Linien gilt die Spaltenreihenfolge nur innerhalb einer Linie."),
     ]:
         info.append(list(paar))
     info.column_dimensions["A"].width = 28

@@ -25,7 +25,7 @@ def ergebnisse(kurztest, indizes):
 def test_architektur_ueber_sachnummern(kurztest, indizes):
     arch, gruende = erkenne_architektur(kurztest, indizes)
     assert arch == "MB.OS1.0"
-    assert any("MB.OS1.0: 7 Steuergeräte" in g for g in gruende)
+    assert any("MB.OS1.0: 8 Steuergeräte" in g for g in gruende)
 
 
 def test_architektur_nicht_eindeutig_ohne_treffer(indizes):
@@ -66,8 +66,9 @@ def test_update_nennt_neueste_kompatible_software(ergebnisse, indizes):
     e = ergebnisse["DISP_C223"]
     assert e.update is True
     assert e.aktuell_releases == ["TR90/01"]
-    assert indizes["MB.OS1.0"].release_name(e.letzter_hw) == "TR90/05"
-    assert {t.snr for t in e.neueste_sw} == {"A9930800013", "A9930900013", "A9931000001"}
+    # Installiert ist TR90/01 (Linie 2090-1.0) -> neuester Stand dieser Linie ist TR90/03
+    assert indizes["MB.OS1.0"].release_name(e.letzter_hw) == "TR90/03"
+    assert {t.snr for t in e.neueste_sw} == {"A9930800011", "A9930900011", "A9931000001"}
     assert "Softwareupdate ist daher möglich" in e.begruendung
 
 
@@ -157,4 +158,51 @@ def test_html_und_vrx_gleiches_ergebnis(kurztest, kurztest_html, indizes):
 
 def test_zaehlung(ergebnisse):
     z = zaehle(list(ergebnisse.values()))
-    assert z == {STATUS_KONFLIKT: 2, STATUS_UPDATE: 1, STATUS_UNKLAR: 2, STATUS_AKTUELL: 2, STATUS_OHNE: 1}
+    assert z == {STATUS_KONFLIKT: 2, STATUS_UPDATE: 2, STATUS_UNKLAR: 2, STATUS_AKTUELL: 2, STATUS_OHNE: 1}
+
+
+# --------------------------------------------------------------------------- MB.OS-Linien
+
+
+def _nach_name(kurztest, idx, ziel_linie=None):
+    return {e.sg.name: e for e in abgleich(kurztest, idx, ziel_linie=ziel_linie)}
+
+
+def test_linien_nur_bei_mbos10(konfigs):
+    assert konfigs["MB.OS1.0"].linien() == ["2090-1.0", "2090-2.0"]
+    assert konfigs["G20i2"].linien() == []
+    assert konfigs["MB.OS_0.7"].linien() == []
+
+
+def test_spaltenreihenfolge_gilt_nur_innerhalb_der_linie(kurztest, indizes):
+    """Rechteste Spalte (TR90/05, Linie 2090-2.0) hat E801.0 – neuer ist E802.0 in Linie 2090-1.0."""
+    idx = indizes["MB.OS1.0"]
+    e = _nach_name(kurztest, idx)["AUD223"]
+    assert (e.status, e.linie, e.linie_quelle) == (STATUS_UPDATE, "2090-1.0", "Linie des installierten Stands")
+    assert (idx.release_name(e.letzter_hw), e.letzter_hw.e_stand) == ("TR90/03", "E802.0")
+    assert [(lin, x.e_stand) for lin, x in e.neuere_linien] == [("2090-2.0", "E801.0")]
+    assert [lin for lin, _ in e.je_linie] == ["2090-1.0", "2090-2.0"]
+
+
+def test_aktuell_in_eigener_linie_mit_hinweis_auf_neuere_linie(kurztest, indizes):
+    e = _nach_name(kurztest, indizes["MB.OS1.0"])["TELM"]
+    assert e.status == STATUS_AKTUELL
+    assert any("in neueren Linien nicht mehr unterstützt: 2090-2.0" in g for g in e.gruende)
+
+
+def test_gewaehlte_ziel_linie(kurztest, indizes):
+    idx = indizes["MB.OS1.0"]
+    erg = _nach_name(kurztest, idx, "2090-2.0")
+    assert erg["AUD223"].status == STATUS_UPDATE
+    assert idx.release_name(erg["AUD223"].letzter_hw) == "TR90/05"
+    assert erg["AUD223"].linie_quelle == "gewählte Ziel-Linie"
+    # alte TEL-Hardware wird in Linie 2090-2.0 nicht mehr geführt
+    assert erg["TELM"].status == STATUS_KONFLIKT
+    assert "Verbaute Hardware wird in Linie 2090-2.0 nicht unterstützt" in erg["TELM"].gruende
+    assert erg["CIVIC206"].status == STATUS_AKTUELL
+
+
+def test_ziel_linie_aelter_als_installierter_stand(kurztest, indizes):
+    e = _nach_name(kurztest, indizes["MB.OS1.0"], "2090-1.0")["CIVIC206"]  # installiert: Linie 2090-2.0
+    assert e.status == STATUS_UNKLAR
+    assert any("Rückschritt" in g for g in e.gruende)
