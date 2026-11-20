@@ -5,57 +5,33 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 
 ## [Unveröffentlicht]
 
-### Neu
-- **Windows-Programm** (`packaging/`): `QT-Tool.exe` ohne Python-Installation. Der Workflow „Release“ baut sie bei
-  jedem Versions-Tag, testet Start und Module und hängt `QT-Tool-<Version>-windows.zip` an das GitHub-Release.
-  Daten bleiben bei Updates im Benutzerordner (`QT-Tool\daten`).
+## [0.1.0] – 2026-11-20
 
-### Geändert
-- **Unbekannte Hardware mit Bezug:** Steht die verbaute HW nicht in der Konfiguration, gibt es aber HW mit gleichem
-  Sachnummern-Stamm **und** passendem Namen (z. B. CIVIC174M ↔ „CIVIC PREMIUM …“), ist der Status „Unklar“ mit
-  Hinweis auf einen vermutlich neuen, noch nicht eingepflegten Hardwarestand (vorher „nicht in der Konfiguration“).
-- **Update-Protokoll übersichtlicher:** geänderte Steuergeräte mit Bezug zur Release-Konfiguration zuerst; übrige
-  geflashte Steuergeräte (z. B. Antrieb, Fahrwerk) kompakt in eigenem Abschnitt nur mit Software vorher/nachher.
+Erste Version: Abgleich von Fahrzeug-Kurztests mit den Release-Konfigurationen G20i2, MB.OS_0.7 und MB.OS1.0.
+Geprüft mit echten Kurztests aus DTS9 und DOBT und den echten Release-Konfigurationen aller drei Architekturen.
 
 ### Neu
-- **Vorher/Nachher** (`qt_tool/vergleich.py`): zweites Upload-Feld für den Kurztest OUT (nach dem Flashen).
-  Je Steuergerät: aktualisiert / Hardware getauscht / unverändert / neu / fehlt, alte und neue Software-Stände,
-  Status vorher → nachher und Ergebnis (Ziel erreicht, noch nicht neuester Stand, Update nicht durchgeführt,
-  prüfen). Update-Protokoll als HTML (als PDF druckbar) und Excel; Warnung bei verschiedenen Fahrzeugen.
-  Umschalter, ob der Abgleich für IN oder OUT angezeigt wird.
-- **Datenpakete als Hinweis:** SW-Sachnummern, die in der Konfiguration nur in Abschnitten ohne Hardware stehen
-  (z. B. CIVIC-Betriebsanleitung, Carline-Bilder, Sound-/Navi-Daten – baureihenspezifisch), werden nicht mehr
-  bewertet, sondern als Hinweis angezeigt (Spalte „Hinweise (Datenpakete)“, Detailansicht, Bericht).
-- **Analysebericht je Fahrzeug** (`qt_tool/bericht.py`): eigenständige HTML-Datei mit Fahrzeugdaten,
-  Release-Konfiguration/Linie, Zusammenfassung, Handlungsbedarf mit Empfehlung und Begründung, aktuellen und
-  nicht zugeordneten Steuergeräten; im Browser als PDF druckbar (A4), hell/dunkel, ohne Internet.
-- **Prototyp Kurztest-Abgleich** (`app.py`, `qt_tool/`): Kurztest (.html, .vrx – Erkennung vorläufig) und
-  Release-Konfigurationen für G20i2, MB.OS_0.7 und MB.OS1.0 per Drag & Drop laden; Architektur automatisch
-  erkennen (manuell änderbar); je Steuergerät Abgleich von Hardware, Software und Patchlevel mit aktuellem
-  Release-Stand, letztem Release für die verbaute Hardware und neuester kompatibler Software; Status Aktuell /
-  Update verfügbar / Konflikt / Unklar mit Begründung und Fundstellen; Dashboard, Filter, Suche, Detailansicht,
-  manuelle Variantenwahl; Excel-Export (vollständig, Abweichungen, Updates, unklar).
-- **Kurztest aus DTS9:** `.vrx` (VDX 3.3.1) und `.html`-Ansicht werden nach echtem Beispiel gelesen, auch als
-  ZIP; beide liefern dieselben Steuergeräte. Angezeigt wird der Name aus dem Kurztest, zugeordnet über
-  Sachnummern. Variante, Fehlerspeicher (SAE-Nummer), nicht auslesbare Sachnummern und Komponenten ohne Antwort
-  werden erkannt; der Benutzername des Testers wird nicht übernommen.
-- **Fix Release-Konfiguration einlesen:** Zeilenbeschriftungen mit Zusätzen („Funktions SW PROD / Funktions SW
-  DEV“, „FL SW PROD“, „Kamera SW“, „NVH Daten SW“, „(see info box)“) wurden als neue Varianten gelesen; deren
-  Software fehlte im Abgleich (betraf vor allem MB.OS 0.7). Mehrere Zeilen derselben Art je Variante werden jetzt
-  übernommen. Gespeicherte Konfigurationen werden beim nächsten Start automatisch neu eingelesen.
-- Hinweis, wenn die installierte Software laut Konfiguration zu einer anderen Variante (anderer Hardware) gehört.
-- **MB.OS-Linien (MB.OS1.0):** Die Spaltenreihenfolge gilt nur noch innerhalb einer Linie. Vorgabe ist die Linie
-  des installierten Stands je Steuergerät, eine Ziel-Linie ist wählbar. Neu: Spalten „MB.OS-Linie“ und „Neuere
-  Linie mit anderem Stand“, Tabelle „Neuester Stand je MB.OS-Linie“ in der Detailansicht, Ziel-Linie im
-  Excel-Export. Vorher konnte ein älterer Stand aus der rechtesten Spalte einer anderen Linie empfohlen werden.
-- DOBT-Kurztests (`.vrx` und `.vrx.html`, ISO-8859-1) werden gelesen; Zeichensatz-Erkennung korrigiert
-  (UTF-16 nur noch mit BOM).
-- Keine Zuordnung mehr über Steuergerätenamen (Zufallstreffer wie „SEAT“ in „… 4-SEAT“). Unbekannte Hardware
-  mit bekannter Software ist „Unklar“ (Hinweis auf evtl. neue Hardware) statt „Konflikt“.
-- Konflikt-Hinweis, wenn die installierte Software exakt zu einem Release passt, dort aber für andere Hardware
-  hinterlegt ist.
-- Release-Konfigurationen bleiben lokal gespeichert, bis eine neue Version hochgeladen wird; manuelle
-  Spaltenzuordnung je Architektur.
-- Erfundene Beispieldaten (`beispiel/erzeuge_beispiel.py`), Bedienungsanleitung `HILFE.md`.
-- Projektgrundlage: Projektanweisungen (Senior-Entwickler, Git/Versionierung), Prüfwerkzeuge (ruff, pytest),
-  GitHub-Workflows für Tests und Releases, Pull-Request-Vorlage. Übernommen und verallgemeinert aus NIRE_Projekt.
+- **Windows-Programm:** `QT-Tool.exe` ohne Python-Installation – ZIP vom GitHub-Release entpacken und starten.
+  Läuft nur auf dem eigenen Rechner (`localhost`); Daten bleiben bei Updates unter `%USERPROFILE%\QT-Tool\daten`.
+- **Release-Konfigurationen** je Architektur per Drag & Drop laden und jederzeit ersetzen; Aufbau wird über den
+  Inhalt erkannt (Kopfzeile, Titelspalte, Release-Blöcke, Mehrfachwerte, Beschriftungen wie „Funktions SW PROD /
+  DEV“, „Kamera SW“); Architektur aus Dateiname und Inhalt; manuelle Spaltenzuordnung, falls nötig.
+- **Kurztests** aus DTS9 und DOBT als `.vrx` (empfohlen, < 1 s), `.html` oder ZIP; angezeigt werden die Namen aus
+  dem Kurztest, zugeordnet wird über Sachnummern. Variante, Fehlerspeicher, nicht auslesbare Sachnummern und
+  Komponenten ohne Antwort werden erkannt; der Benutzername des Testers wird nicht übernommen.
+- **Abgleich je Steuergerät:** Hardware → Variante → aktueller Release-Stand → letzter Release für die verbaute HW
+  → neueste kompatible Software. Status **Aktuell / Update verfügbar / Konflikt / Unklar** mit Begründung,
+  Art der Zuordnung und Fundstellen (Datei, Blatt, Release-Spalte, Zeile). Hinweise u. a. bei abweichendem
+  Patchlevel, Software einer anderen Variante/Hardware, nicht mehr unterstützter Hardware und vermutlich neuer,
+  noch nicht eingepflegter Hardware. Mehrdeutige Varianten werden zur Auswahl angeboten.
+- **MB.OS-Linien (MB.OS1.0):** neuester Stand innerhalb der Linie des installierten Stands; Ziel-Linie wählbar;
+  neuere Linien mit anderem Stand als Hinweis und Tabelle „je Linie“.
+- **Datenpakete** (baureihenspezifisch, z. B. CIVIC-Betriebsanleitung, Carline-Bilder, Sound-/Navi-Daten) werden
+  als Hinweis geführt, nicht bewertet.
+- **Vorher/Nachher:** Kurztest IN (vor dem Flashen) gegen OUT (danach) – was wurde tatsächlich aktualisiert, ist
+  der neueste kompatible Stand erreicht; Warnung bei verschiedenen Fahrzeugen.
+- **Oberfläche:** Dashboard mit anklickbaren Zahlen, Suche, Filter, Detailansicht, Hilfe in der Seitenleiste.
+- **Ausgaben:** Excel-Export (vollständig, Abweichungen, Updates, unklar/nicht kompatibel), Analysebericht je
+  Fahrzeug und Update-Protokoll als HTML (im Browser als PDF druckbar) bzw. Excel.
+- Projektgrundlage: Arbeitsweise (Senior-Entwickler-Review, Git/Versionierung), Prüfwerkzeuge (ruff, pytest),
+  GitHub-Workflows, erfundene Beispieldaten für Tests.
