@@ -34,3 +34,9 @@ dist/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Kurztests (echte Fahrzeugdaten) und erzeugte Beispieldateien
+*.vrx
+*.html
+!static/**/*.html
+beispiel/dateien/
