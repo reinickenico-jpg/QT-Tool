@@ -13,7 +13,7 @@ Alle Dateien werden **nur auf diesem Rechner** verarbeitet.
    es eine neue Version gibt: Die neue Datei ersetzt die alte. Das Feld zeigt Dateiname, erkannte
    Architektur, Stand (Datum/TR/Version aus dem Dateinamen), neuesten Release und Upload-Datum.
    Landet eine Datei im falschen Feld, meldet das Tool das.
-2. **Kurztest hineinziehen** – am besten die **`.vrx`**-Datei aus DTS9. Sie enthält dieselben Daten wie die
+2. **Kurztest hineinziehen** – am besten die **`.vrx`**-Datei (aus DTS9 oder DOBT). Sie enthält dieselben Daten wie die
    `.html`, wird aber in unter einer Sekunde gelesen (`.html`: ca. 10 Sekunden). Ein ZIP mit beiden Dateien
    geht auch (dann wird die `.vrx` genommen).
 3. **Architektur prüfen** – das Tool erkennt sie über die Sachnummern des Kurztests. Ist sie nicht

@@ -556,23 +556,18 @@ def _fundstellen(erg: Ergebnis, idx: Index) -> list[str]:
     return zeilen
 
 
-def _namens_treffer(sg: KurztestSG, idx: Index) -> list[str]:
-    varianten: set[str] = set()
-    for wort in vergleichstext(f"{sg.name} {sg.bezeichnung}").split():
-        if len(wort) >= 3 and wort not in idx.allgemeine_woerter:
-            varianten |= idx.komponenten_woerter.get(wort, set())
-    return sorted(varianten)
+def _varianten_ueber_sw(idx: Index, sw_teile: list[Teil]) -> list[str]:
+    return sorted({idx.eintrag(i).variante_id for t in sw_teile for i in idx.sw.get(t.schluessel, [])})
 
 
 def _ohne_hardware(sg: KurztestSG, idx: Index, sw_teile: list[Teil]) -> Ergebnis:
-    ueber_sw = sorted({idx.eintrag(i).variante_id for t in sw_teile for i in idx.sw.get(t.schluessel, [])})
-    if ueber_sw or _namens_treffer(sg, idx):
+    if ueber_sw := _varianten_ueber_sw(idx, sw_teile):
         return Ergebnis(
             sg=sg,
             status=STATUS_UNKLAR,
             kandidaten=ueber_sw,
             gruende=["Hardware-Partnummer fehlt im Kurztest"],
-            zuordnung="Zuordnung über " + ("Software-Sachnummer" if ueber_sw else "Steuergerätename") + " (HW fehlt).",
+            zuordnung="Software-Sachnummer kommt in der Konfiguration vor; ohne Hardware keine Kompatibilitätsaussage.",
             begruendung="Ohne Hardware-Sachnummer lässt sich die Kompatibilität nicht feststellen.",
         )
     return Ergebnis(
@@ -584,35 +579,26 @@ def _ohne_hardware(sg: KurztestSG, idx: Index, sw_teile: list[Teil]) -> Ergebnis
 
 
 def _hardware_unbekannt(sg: KurztestSG, idx: Index, sw_teile: list[Teil]) -> Ergebnis:
-    ueber_sw = sorted({idx.eintrag(i).variante_id for t in sw_teile for i in idx.sw.get(t.schluessel, [])})
-    ueber_name = _namens_treffer(sg, idx)
-    if ueber_sw:
+    """HW kommt nicht vor. Kommt die SW vor, ist das ein Hinweis (z. B. neue, noch nicht eingepflegte HW) –
+    aber kein Beleg für einen Konflikt, daher „Unklar“. Zuordnung über Namen gibt es bewusst nicht
+    (zu viele Zufallstreffer, z. B. „SEAT“ in „… 4-SEAT“)."""
+    if ueber_sw := _varianten_ueber_sw(idx, sw_teile):
         return Ergebnis(
             sg=sg,
-            status=STATUS_KONFLIKT,
-            kandidaten=ueber_sw,
-            kompatibilitaet="nicht kompatibel laut Konfiguration",
+            status=STATUS_UNKLAR,
+            kandidaten=ueber_sw[:20],
+            kompatibilitaet="nicht feststellbar (Hardware nicht gelistet)",
             gruende=[
                 "Hardware nicht in der Release-Konfiguration gefunden",
-                "Installierte Software gehört laut Konfiguration zu anderer Hardware",
+                f"Installierte Software kommt bei {len(ueber_sw)} Variante(n) mit anderer Hardware vor – "
+                "evtl. neue oder nicht eingepflegte Hardware",
             ],
-            zuordnung="Zuordnung über Software-Sachnummer; die Hardware-Sachnummer kommt nicht vor.",
+            zuordnung="Nur über Software-Sachnummern; die Hardware-Sachnummer kommt nicht vor.",
             begruendung=(
-                f"Die installierte Software {_sw_text(sw_teile)} ist in der Release-Konfiguration nur für andere "
-                f"Hardware hinterlegt, nicht für {_hw_text(sg)}."
-            ),
-        )
-    if ueber_name and re.search(r"[A-Z]{2,}", sg.name.upper()):
-        return Ergebnis(
-            sg=sg,
-            status=STATUS_KONFLIKT,
-            kandidaten=ueber_name[:20],
-            kompatibilitaet="nicht feststellbar",
-            gruende=["Hardware nicht in der Release-Konfiguration gefunden"],
-            zuordnung="Zuordnung nur über Steuergerätename – bitte prüfen.",
-            begruendung=(
-                f"Der Steuergerätename passt zu Einträgen der Release-Konfiguration, die Hardware {_hw_text(sg)} "
-                "ist dort aber nicht hinterlegt (evtl. zu alte oder zu neue Hardware)."
+                f"Die verbaute Hardware {_hw_text(sg)} steht nicht in der Release-Konfiguration. Ihre Software "
+                f"ist dort bei anderer Hardware hinterlegt ({ueber_sw[0]}"
+                + (f" und {len(ueber_sw) - 1} weitere" if len(ueber_sw) > 1 else "")
+                + "). Eine Kompatibilität ist damit nicht belegt – bitte prüfen."
             ),
         )
     return Ergebnis(

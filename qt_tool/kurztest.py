@@ -65,7 +65,8 @@ FEHLER_HINWEIS = re.compile(r"\b(DTC|FEHLER|FAULT|ERROR)\b", re.IGNORECASE)
 KOPF_SYNONYME = {
     "VIN": ("VIN", "FIN", "FAHRGESTELLNUMMER", "IDENTIFICATION NUMBER"),
     "FiNAS": ("FINAS", "FINAS NUMBER"),
-    "Baureihe": ("PROJECT NAME", "BAUREIHE", "MODEL LINE"),
+    "Baureihe": ("BAUREIHE", "MODEL LINE"),
+    "Projekt": ("PROJECT NAME", "PROJEKT"),
     "Kilometerstand": ("ODOMETER", "KILOMETERSTAND", "ODO"),
     "Datum": ("DATUM", "DATE", "TIME"),
     "Diagnosetool": ("SERVICE TOOL",),
@@ -450,12 +451,19 @@ def _xml_allgemein(wurzel: ElementTree.Element) -> list[KurztestSG]:
 
 
 def _dekodiere(inhalt: bytes) -> str:
-    for kodierung in ("utf-8-sig", "utf-16", "cp1252"):
+    """Text aus Bytes: UTF-16 nur mit BOM, sonst UTF-8; scheitert das, der im Kopf angegebene Zeichensatz
+    (DOBT-HTML ist z. B. ISO-8859-1) bzw. Windows-1252."""
+    if inhalt[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return inhalt.decode("utf-16")
+    try:
+        return inhalt.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        pass
+    angabe = re.search(rb"""(?:charset|encoding)\s*=\s*["']?([\w-]+)""", inhalt[:3000], re.IGNORECASE)
+    for kodierung in ([angabe.group(1).decode("ascii")] if angabe else []) + ["cp1252"]:
         try:
-            t = inhalt.decode(kodierung)
-            if "\x00" not in t:
-                return t
-        except UnicodeDecodeError:
+            return inhalt.decode(kodierung)
+        except (UnicodeDecodeError, LookupError):
             continue
     return inhalt.decode("latin-1")
 

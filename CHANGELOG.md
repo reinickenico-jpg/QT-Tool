@@ -16,6 +16,10 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
   ZIP; beide liefern dieselben Steuergeräte. Angezeigt wird der Name aus dem Kurztest, zugeordnet über
   Sachnummern. Variante, Fehlerspeicher (SAE-Nummer), nicht auslesbare Sachnummern und Komponenten ohne Antwort
   werden erkannt; der Benutzername des Testers wird nicht übernommen.
+- DOBT-Kurztests (`.vrx` und `.vrx.html`, ISO-8859-1) werden gelesen; Zeichensatz-Erkennung korrigiert
+  (UTF-16 nur noch mit BOM).
+- Keine Zuordnung mehr über Steuergerätenamen (Zufallstreffer wie „SEAT“ in „… 4-SEAT“). Unbekannte Hardware
+  mit bekannter Software ist „Unklar“ (Hinweis auf evtl. neue Hardware) statt „Konflikt“.
 - Konflikt-Hinweis, wenn die installierte Software exakt zu einem Release passt, dort aber für andere Hardware
   hinterlegt ist.
 - Release-Konfigurationen bleiben lokal gespeichert, bis eine neue Version hochgeladen wird; manuelle
