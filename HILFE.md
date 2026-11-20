@@ -13,7 +13,9 @@ Alle Dateien werden **nur auf diesem Rechner** verarbeitet.
    es eine neue Version gibt: Die neue Datei ersetzt die alte. Das Feld zeigt Dateiname, erkannte
    Architektur, Stand (Datum/TR/Version aus dem Dateinamen), neuesten Release und Upload-Datum.
    Landet eine Datei im falschen Feld, meldet das Tool das.
-2. **Kurztest hineinziehen** (`.html` oder `.vrx`).
+2. **Kurztest hineinziehen** – am besten die **`.vrx`**-Datei aus DTS9. Sie enthält dieselben Daten wie die
+   `.html`, wird aber in unter einer Sekunde gelesen (`.html`: ca. 10 Sekunden). Ein ZIP mit beiden Dateien
+   geht auch (dann wird die `.vrx` genommen).
 3. **Architektur prüfen** – das Tool erkennt sie über die Sachnummern des Kurztests. Ist sie nicht
    eindeutig, links auswählen. Verglichen wird nur mit der Release-Konfiguration dieser Architektur.
 4. **Ergebnis ansehen** – Zahlen oben anklicken zum Filtern, Zeile anklicken für die Detailansicht,
@@ -30,6 +32,17 @@ Alle Dateien werden **nur auf diesem Rechner** verarbeitet.
 | **Nicht in Release-Konfiguration** | grau | Das Steuergerät kommt in der Release-Konfiguration nicht vor (z. B. Fahrwerk). Standardmäßig ausgeblendet. |
 
 Der Status steht immer auch als Text da – nicht nur als Farbe.
+
+## Namen der Steuergeräte
+
+In der Tabelle stehen immer die **Namen aus dem Kurztest** (z. B. `CIVIC206`, `HUD214`). Die Namen in der
+Release-Konfiguration sind oft anders (z. B. „CIVIC PREMIUM+ ECE CY27-1 (LS4+)“). Zugeordnet wird deshalb
+**über die Sachnummern** (Hardware und Software), nicht über den Namen. Welche Variante der
+Release-Konfiguration verwendet wurde, steht in der Spalte *Variante (Release-Konfiguration)*.
+
+Steuergeräte, die im Kurztest keine Hardware-/Software-Daten haben (keine Antwort oder nicht verbaut),
+werden nicht bewertet; ihre Anzahl steht unter dem Kurztest. Sachnummern, die das Steuergerät nicht liefern
+konnte (`??????????`), werden nicht verglichen und in der Detailansicht vermerkt.
 
 ## Wie vergleicht das Tool?
 
@@ -59,6 +72,7 @@ Sachnummer verglichen (Hinweis in der Bewertung).
 
 | Spalte | Inhalt |
 |---|---|
+| Steuergerät / Variante (Kurztest) | Name und Diagnose-Variante, wie sie im Kurztest stehen |
 | Installierte Software (E-Stand) | E-Stand des Releases, zu dem der installierte Stand passt |
 | Zugehöriger Release-Stand | alle Releases mit genau diesem Stand (erster … letzter) |
 | Letzter Release für die verbaute HW | neuester Release, in dem diese Hardware noch geführt wird |
@@ -82,8 +96,8 @@ Das Tool zeigt das so an, statt einen Status zu erfinden.
 - **Release-Konfiguration wird nicht erkannt:** unter *Erkannte Struktur … / Spalten zuordnen*
   Tabellenblatt, Kopfzeile, Titelspalte oder Lage der Spalten im Release-Block einmalig vorgeben.
   Die Zuordnung wird je Architektur gespeichert.
-- **Kurztest wird nicht gelesen:** Die Erkennung des Kurztest-Formats ist noch vorläufig (es lag noch kein
-  Beispiel vor). Datei bitte an die Entwicklung geben, damit das Format ergänzt wird.
+- **Kurztest wird nicht gelesen:** Unterstützt sind `.vrx` (VDX 3.x aus DTS9) und die `.html`-Ansicht dazu.
+  Andere Formate bitte an die Entwicklung geben, damit sie ergänzt werden.
 - **Alte .xls-Datei:** in Excel als `.xlsx` speichern.
 
 ## Wo liegen die Daten?

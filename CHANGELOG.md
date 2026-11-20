@@ -12,6 +12,12 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
   Release-Stand, letztem Release f체r die verbaute Hardware und neuester kompatibler Software; Status Aktuell /
   Update verf체gbar / Konflikt / Unklar mit Begr체ndung und Fundstellen; Dashboard, Filter, Suche, Detailansicht,
   manuelle Variantenwahl; Excel-Export (vollst채ndig, Abweichungen, Updates, unklar).
+- **Kurztest aus DTS9:** `.vrx` (VDX 3.3.1) und `.html`-Ansicht werden nach echtem Beispiel gelesen, auch als
+  ZIP; beide liefern dieselben Steuerger채te. Angezeigt wird der Name aus dem Kurztest, zugeordnet 체ber
+  Sachnummern. Variante, Fehlerspeicher (SAE-Nummer), nicht auslesbare Sachnummern und Komponenten ohne Antwort
+  werden erkannt; der Benutzername des Testers wird nicht 체bernommen.
+- Konflikt-Hinweis, wenn die installierte Software exakt zu einem Release passt, dort aber f체r andere Hardware
+  hinterlegt ist.
 - Release-Konfigurationen bleiben lokal gespeichert, bis eine neue Version hochgeladen wird; manuelle
   Spaltenzuordnung je Architektur.
 - Erfundene Beispieldaten (`beispiel/erzeuge_beispiel.py`), Bedienungsanleitung `HILFE.md`.
