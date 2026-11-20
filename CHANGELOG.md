@@ -16,6 +16,11 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
   ZIP; beide liefern dieselben Steuergeräte. Angezeigt wird der Name aus dem Kurztest, zugeordnet über
   Sachnummern. Variante, Fehlerspeicher (SAE-Nummer), nicht auslesbare Sachnummern und Komponenten ohne Antwort
   werden erkannt; der Benutzername des Testers wird nicht übernommen.
+- **Fix Release-Konfiguration einlesen:** Zeilenbeschriftungen mit Zusätzen („Funktions SW PROD / Funktions SW
+  DEV“, „FL SW PROD“, „Kamera SW“, „NVH Daten SW“, „(see info box)“) wurden als neue Varianten gelesen; deren
+  Software fehlte im Abgleich (betraf vor allem MB.OS 0.7). Mehrere Zeilen derselben Art je Variante werden jetzt
+  übernommen. Gespeicherte Konfigurationen werden beim nächsten Start automatisch neu eingelesen.
+- Hinweis, wenn die installierte Software laut Konfiguration zu einer anderen Variante (anderer Hardware) gehört.
 - **MB.OS-Linien (MB.OS1.0):** Die Spaltenreihenfolge gilt nur noch innerhalb einer Linie. Vorgabe ist die Linie
   des installierten Stands je Steuergerät, eine Ziel-Linie ist wählbar. Neu: Spalten „MB.OS-Linie“ und „Neuere
   Linie mit anderem Stand“, Tabelle „Neuester Stand je MB.OS-Linie“ in der Detailansicht, Ziel-Linie im

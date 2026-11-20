@@ -104,3 +104,54 @@ def test_manuelle_zuordnung_der_titelspalte(beispielordner):
     k = lese_release_konfig(pfad, pfad.name, {"titelspalte": "J", "kopfzeile": 12})
     assert k.struktur["Titelspalte"] == "J"
     assert k.eintraege
+
+
+@pytest.mark.parametrize(
+    ("beschriftung", "art"),
+    [
+        ("Funktions SW PROD\nFunktions SW DEV", "Funktions SW"),
+        ("FL SW PROD", "FL SW"),
+        ("Daten SW DEV\nDaten SW PROD", "Daten SW"),
+        ("Kamera SW\nFunktions SW", "Funktions SW"),
+        ("NVH Daten SW\nDRIVE Daten SW", "Daten SW"),
+        ("Funktions SW PROD\nFunktions SW DEV (see info box)\nFL SW", "Funktions SW"),
+        ("HW altern.", "HW altern."),
+        ("GOOGLE NAVIGATION SW ECE", None),  # echter Variantentitel
+        ("CIVIC PREMIUM ECE", None),
+    ],
+)
+def test_zeilenart_mit_zusaetzen(beschriftung, art):
+    from qt_tool.release_konfig import _zeilenart
+
+    assert _zeilenart(beschriftung) == art
+
+
+def test_zwei_softwarezeilen_derselben_art_in_einer_variante():
+    """Regressionstest: „Kamera SW“ und „Funktions SW PROD / DEV“ gehören zur Variante, nicht neue Varianten."""
+    wb = Workbook()
+    ws = wb.active
+    ws.cell(12, 10, "Title")
+    for k, kopf in enumerate(["E-Stand", "Sample", "LU-SNR", "SNR", "Code", "DiagID", " Version"]):
+        ws.cell(12, 13 + k, kopf)
+    ws.cell(2, 13, "TR90/01")
+    ws.cell(13, 2, "DEMO DISPLAY")
+    for r, (titel, snr, version) in enumerate(
+        [
+            ("DISPLAY FOND DEMO", None, None),
+            ("HW", "A9990000001", "90/01.00"),
+            ("Kamera SW", "A9990000002", "90/01.00"),
+            ("Funktions SW PROD\nFunktions SW DEV", "A9990000003\nA9990000004", "90/01.00\n90/01.01"),
+            ("FL SW PROD", "A9990000005", "90/01.00"),
+        ],
+        start=14,
+    ):
+        ws.cell(r, 10, titel)
+        if snr:
+            ws.cell(r, 16, snr)
+            ws.cell(r, 19, version)
+    ws.cell(14, 13, "E001.0")
+    puffer = io.BytesIO()
+    wb.save(puffer)
+    k = lese_release_konfig(puffer.getvalue(), "BEISPIEL_MB.OS_0.7.xlsx")
+    assert [e.variante for e in k.eintraege] == ["DISPLAY FOND DEMO"]
+    assert [t.snr for t in k.eintraege[0].sw] == ["A9990000002", "A9990000003", "A9990000004", "A9990000005"]

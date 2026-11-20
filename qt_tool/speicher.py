@@ -17,7 +17,10 @@ from pathlib import Path
 
 from qt_tool.modell import ARCHITEKTUREN, ReleaseKonfig
 
-FORMAT_VERSION = 1  # erhöhen, wenn sich das gespeicherte Modell inkompatibel ändert -> neu einlesen
+# Erhöhen, wenn sich das Einlesen oder das gespeicherte Modell ändert: gespeicherte Konfigurationen werden dann
+# beim nächsten Laden automatisch aus der Originaldatei neu eingelesen.
+# 2: Zeilenbeschriftungen wie „Funktions SW PROD / DEV“, „Kamera SW“ werden erkannt
+FORMAT_VERSION = 2
 
 
 def daten_ordner() -> Path:
@@ -45,16 +48,36 @@ def speichere_konfig(konfig: ReleaseKonfig, original: bytes) -> None:
 
 
 def lade_konfig(architektur: str) -> ReleaseKonfig | None:
+    """Gespeicherte Konfiguration laden; ist sie veraltet oder beschädigt, aus der Originaldatei neu einlesen."""
     pfad = _dateiname(architektur, ".json.gz")
     if not pfad.exists():
         return None
     try:
         daten = json.loads(gzip.decompress(pfad.read_bytes()))
     except (OSError, ValueError):
+        daten = {}
+    if daten.get("format") == FORMAT_VERSION:
+        return ReleaseKonfig.aus_dict(daten["konfig"])
+    return _neu_einlesen(architektur, daten.get("konfig") or {})
+
+
+def _neu_einlesen(architektur: str, alt: dict) -> ReleaseKonfig | None:
+    from qt_tool.release_konfig import StrukturFehler, lese_release_konfig
+
+    inhalt = original(architektur)
+    if inhalt is None:
         return None
-    if daten.get("format") != FORMAT_VERSION:
+    try:
+        konfig = lese_release_konfig(
+            inhalt, alt.get("dateiname") or f"{architektur}.xlsx", lade_zuordnungen().get(architektur)
+        )
+    except (StrukturFehler, ValueError, KeyError):
         return None
-    return ReleaseKonfig.aus_dict(daten["konfig"])
+    konfig.architektur = architektur
+    konfig.hochgeladen = alt.get("hochgeladen") or konfig.hochgeladen
+    konfig.architektur_quelle = alt.get("architektur_quelle") or konfig.architektur_quelle
+    speichere_konfig(konfig, inhalt)
+    return konfig
 
 
 def original(architektur: str) -> bytes | None:

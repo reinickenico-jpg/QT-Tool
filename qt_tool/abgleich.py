@@ -461,6 +461,14 @@ def _bewerte_variante(
                 f"die Hardware {', '.join(t.snr for t in e.hw)} hinterlegt, nicht die verbaute",
             )
             erg.naechster_treffer = e
+        elif andere := _sw_passt_zu_anderer_variante(sw_teile, variante, idx):
+            e, exakt = andere
+            erg.gruende.insert(
+                1,
+                f"Installierte Software entspricht {'exakt ' if exakt else 'den Sachnummern nach '}"
+                f"{idx.release_name(e)} der Variante „{e.variante}“ (Hardware "
+                f"{', '.join(t.snr for t in e.hw) or '–'}) – sie gehört laut Konfiguration zu anderer Hardware",
+            )
         if fremd:
             erg.gruende.append(
                 "Software-Sachnummer(n) gehören laut Konfiguration zu einer anderen Variante/Hardware: "
@@ -555,6 +563,24 @@ def _zahl(wert: str | None) -> int:
         return int(wert or 0)
     except ValueError:
         return 0
+
+
+def _sw_passt_zu_anderer_variante(sw_teile: list[Teil], variante: str, idx: Index) -> tuple[Eintrag, bool] | None:
+    """Neuester Eintrag einer ANDEREN Variante (mit Hardware), der alle installierten SW-Sachnummern enthält.
+    Rückgabe: (Eintrag, Patchlevel ebenfalls gleich) oder ``None``."""
+    if not sw_teile:
+        return None
+    gemeinsam = set.intersection(*(set(idx.sw.get(t.schluessel, [])) for t in sw_teile))
+    kandidaten = [idx.eintrag(i) for i in gemeinsam if idx.eintrag(i).variante_id != variante and idx.eintrag(i).hw]
+    if not kandidaten:
+        return None
+
+    def exakt(e: Eintrag) -> bool:
+        m = {t.schluessel: t.version_norm for t in e.sw}
+        return all(m.get(t.schluessel) in (None, t.version_norm) for t in sw_teile)
+
+    beste = max(kandidaten, key=lambda e: (exakt(e), e.release_index))
+    return beste, exakt(beste)
 
 
 def _aelter(relevant: list[Teil], letzter: Eintrag) -> bool:
