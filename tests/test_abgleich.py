@@ -206,3 +206,15 @@ def test_ziel_linie_aelter_als_installierter_stand(kurztest, indizes):
     e = _nach_name(kurztest, indizes["MB.OS1.0"], "2090-1.0")["CIVIC206"]  # installiert: Linie 2090-2.0
     assert e.status == STATUS_UNKLAR
     assert any("Rückschritt" in g for g in e.gruende)
+
+
+def test_software_einer_anderen_variante(indizes):
+    """Display-HW mit der Software des HUD: Hinweis nennt die Variante, zu der die Software gehört."""
+    sg = KurztestSG(
+        "DISP_X",
+        hw=[Teil("HW", "A9930700001", "90/01.00")],
+        sw=[Teil("Funktions SW", "A9931500013", "90/04.60"), Teil("FL SW", "A9931600001", "90/01.00")],
+    )
+    e = vergleiche_sg(sg, indizes["MB.OS1.0"])
+    assert e.status == STATUS_KONFLIKT
+    assert any("exakt TR90/05 der Variante „HUD DEMO“" in g for g in e.gruende)

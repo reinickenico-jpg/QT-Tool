@@ -121,13 +121,36 @@ def versionsstand_aus_dateiname(dateiname: str) -> dict[str, str]:
     return stand
 
 
+# Zusätze, die eine Zeilenart nur näher beschreiben (z. B. „Funktions SW PROD“, „Kamera SW“, „(see info box)“)
+_ZUSATZ = re.compile(r"\(.*?\)|\b(prod|dev|kamera|camera|nvh|drive)\b")
+_SW_ZEILE = re.compile(r"^(funktions|funktion|function|daten|data|fl|boot)?\s*-?\s*sw$")
+_SW_ART = {
+    None: FUNKTIONS_SW,
+    "funktions": FUNKTIONS_SW,
+    "funktion": FUNKTIONS_SW,
+    "function": FUNKTIONS_SW,
+    "daten": DATEN_SW,
+    "data": DATEN_SW,
+    "fl": FL_SW,
+    "boot": FL_SW,
+}
+
+
 def _zeilenart(beschriftung: object) -> str | None:
-    s = re.sub(r"[^a-z]", "", text(beschriftung).lower())
-    if not s:
+    """Zeilenart aus der Beschriftung. Mehrzeilige Beschriftungen („Funktions SW PROD / Funktions SW DEV“) und
+    Zusätze (PROD, DEV, Kamera, NVH, „(see info box)“) werden erkannt; maßgeblich ist die erste Zeile.
+    Echte Titel wie „GOOGLE NAVIGATION SW ECE“ gelten nicht als Zeilenart (enden nicht auf „SW“)."""
+    for zeile in text(beschriftung).lower().split("\n"):
+        kern = " ".join(_ZUSATZ.sub(" ", zeile).split())
+        if not kern:
+            continue
+        kompakt = re.sub(r"[^a-z]", "", kern)
+        for art, namen in ZEILENART_NAMEN.items():
+            if kompakt in namen:
+                return art
+        if m := _SW_ZEILE.match(kern):
+            return _SW_ART[m.group(1)]
         return None
-    for art, namen in ZEILENART_NAMEN.items():
-        if s in namen:
-            return art
     return None
 
 
@@ -358,7 +381,7 @@ def _lies_eintraege(
                 aktuell = None
             continue
         if art is None:
-            aktuell = {"komponente": komponente, "variante": beschriftung, "zeile": r, "arten": {}}
+            aktuell = {"komponente": komponente, "variante": beschriftung, "zeile": r, "arten": []}
             gruppen.append(aktuell)
         else:
             if aktuell is None:  # Gruppe ohne eigenen Titel -> Komponente ist der Name
@@ -366,17 +389,18 @@ def _lies_eintraege(
                     "komponente": komponente,
                     "variante": komponente or f"Zeile {r + 1}",
                     "zeile": r,
-                    "arten": {},
+                    "arten": [],
                 }
                 gruppen.append(aktuell)
-            aktuell["arten"].setdefault(art, r)
+            aktuell["arten"].append((art, r))
 
     # 2) Je Gruppe und Release-Block einen Eintrag bilden (nur wenn der Block dort Werte hat)
     eintraege: list[Eintrag] = []
     for g in gruppen:
         for i, s in enumerate(starts):
             sp = {k: s + v for k, v in spalten_je_block[i].items()}
-            zeilen_der_gruppe = [g["zeile"], *g["arten"].values()]
+            art_zeilen = [r for _, r in g["arten"]]
+            zeilen_der_gruppe = [g["zeile"], *art_zeilen]
             if not any(text(zeilen[r][c]) for r in zeilen_der_gruppe for c in sp.values()):
                 continue
             tz = zeilen[g["zeile"]]
@@ -385,11 +409,11 @@ def _lies_eintraege(
                 variante=g["variante"],
                 release_index=i,
                 zeile=g["zeile"] + 1,
-                e_stand=text(tz[sp["E-Stand"]]) if g["zeile"] not in g["arten"].values() else "",
-                sample=text(tz[sp["Sample"]]) if g["zeile"] not in g["arten"].values() else "",
-                lu_snr=text(tz[sp["LU-SNR"]]) if g["zeile"] not in g["arten"].values() else "",
+                e_stand=text(tz[sp["E-Stand"]]) if g["zeile"] not in art_zeilen else "",
+                sample=text(tz[sp["Sample"]]) if g["zeile"] not in art_zeilen else "",
+                lu_snr=text(tz[sp["LU-SNR"]]) if g["zeile"] not in art_zeilen else "",
             )
-            for art, r in g["arten"].items():
+            for art, r in g["arten"]:
                 teile = _lies_teile(zeilen[r], r, art, sp)
                 (e.hw if art in HW_ARTEN else e.sw).extend(teile)
             eintraege.append(e)
