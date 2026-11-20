@@ -9,7 +9,7 @@ Bedienung: [`HILFE.md`](HILFE.md)
 
 ## Funktionen
 
-- Kurztest aus DTS9 als `.vrx` (bevorzugt, < 1 s), `.html` (~10 s) oder ZIP; angezeigt werden die Namen aus dem
+- Kurztest aus DTS9/DOBT als `.vrx`, `.html` oder ZIP (jeweils < 1 s); angezeigt werden die Namen aus dem
   Kurztest, zugeordnet wird über die Sachnummern.
 - Drag & Drop für Kurztest und je Architektur eine Release-Konfiguration; neue Versionen ersetzen die alte
   und bleiben bis zum nächsten Upload gespeichert.
@@ -102,7 +102,7 @@ Arbeitsweise, Branches, Commits und Releases: siehe [`CLAUDE.md`](CLAUDE.md).
   die LU-SNR wird bereits genutzt, wenn sie im Kurztest steht.
 - **Kein Freigabestatus** in den Release-Konfigurationen erkennbar; Muster-Angaben (DEV/PROD) werden angezeigt,
   aber nicht bewertet.
-- **Einlesen großer Release-Konfigurationen** dauert bis ca. 10 s (G20i2, ~12 MB) – nur beim Upload,
+- **Einlesen großer Release-Konfigurationen** dauert wenige Sekunden (G20i2, ~12 MB: ca. 3 s mit python-calamine) – nur beim Upload,
   danach aus dem Zwischenspeicher.
 - **.xls** (altes Excel-Format) wird nicht gelesen.
 

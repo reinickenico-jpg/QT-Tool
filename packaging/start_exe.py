@@ -50,9 +50,39 @@ def fehlende_module(app: Path) -> list[str]:
     return fehlend
 
 
+def funktionstest() -> list[str]:
+    """Führt Funktionen aus, die Module erst bei Bedarf nachladen (farbige Tabelle → jinja2, Excel lesen →
+    python-calamine, Excel schreiben → openpyxl, Bericht). So fällt ein unvollständiger Bau schon beim
+    Selbsttest auf und nicht erst beim Nutzer."""
+    fehler = []
+    try:
+        import pandas as pd
+
+        pd.DataFrame({"Status": ["Aktuell"]}).style.map(lambda v: "color: #000").to_html()
+    except Exception as e:  # noqa: BLE001
+        fehler.append(f"Tabellen-Darstellung ({type(e).__name__}: {e})")
+    try:
+        import io
+
+        import python_calamine
+        from openpyxl import Workbook
+
+        wb = Workbook()
+        wb.active.append(["E-Stand", "SNR"])
+        puffer = io.BytesIO()
+        wb.save(puffer)
+        mappe = python_calamine.CalamineWorkbook.from_filelike(io.BytesIO(puffer.getvalue()))
+        assert mappe.get_sheet_by_name(mappe.sheet_names[0]).to_python()[0] == ["E-Stand", "SNR"]
+    except Exception as e:  # noqa: BLE001
+        fehler.append(f"Excel lesen/schreiben ({type(e).__name__}: {e})")
+    return fehler
+
+
 def main() -> int:
     app = programmordner() / "app.py"
     fehlend = fehlende_module(app)
+    if "--selbsttest" in sys.argv:
+        fehlend += funktionstest()
     if "--selbsttest" in sys.argv:  # für den automatischen Test nach dem Bau
         print("Selbsttest:", "OK" if not fehlend else "FEHLER – fehlende Module: " + ", ".join(fehlend))
         return 1 if fehlend else 0

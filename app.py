@@ -83,12 +83,19 @@ def _kurztest_lesen(inhalt: bytes, dateiname: str) -> Kurztest:
     return lese_kurztest(inhalt, dateiname)
 
 
-def _konfigs() -> dict[str, ReleaseKonfig]:
+def _infos() -> dict[str, speicher.KonfigInfo]:
+    """Kurzinfos der gespeicherten Konfigurationen – schnell, für Statuskarten und den Start."""
+    return {a: i for a in ARCHITEKTUREN if (i := speicher.lade_info(a)) is not None}
+
+
+def _konfigs(infos: dict[str, speicher.KonfigInfo]) -> dict[str, ReleaseKonfig]:
+    """Vollständige Konfigurationen – erst für den Abgleich, danach im Speicher gehalten."""
     geladen = {}
-    for arch in ARCHITEKTUREN:
-        k = _konfig_laden(arch, speicher.stand(arch))
-        if k is not None:
-            geladen[arch] = k
+    with st.spinner("Lade Release-Konfigurationen …"):
+        for arch in infos:
+            k = _konfig_laden(arch, speicher.stand(arch))
+            if k is not None:
+                geladen[arch] = k
     return geladen
 
 
@@ -122,8 +129,8 @@ def bereich_kurztest(titel: str, schluessel: str, leer: str) -> Kurztest | None:
         type=["vrx", "html", "htm", "zip"],
         key=schluessel,
         label_visibility="collapsed",
-        help="Am besten die .vrx-Datei: enthält dieselben Daten wie die .html, wird aber in unter einer Sekunde "
-        "gelesen (.html: ca. 10 s). Ein ZIP mit beiden Dateien geht auch. Verarbeitung nur auf diesem Rechner.",
+        help=".vrx oder .html aus DTS9/DOBT (dieselben Daten, jeweils in unter einer Sekunde gelesen) oder ein ZIP mit "
+        "beiden. Verarbeitung nur auf diesem Rechner.",
     )
     if datei is None:
         st.caption(leer)
@@ -143,7 +150,7 @@ def bereich_kurztest(titel: str, schluessel: str, leer: str) -> Kurztest | None:
     return kurztest
 
 
-def bereich_konfigurationen(konfigs: dict[str, ReleaseKonfig]) -> None:
+def bereich_konfigurationen(konfigs: dict[str, speicher.KonfigInfo]) -> None:
     """Ein Feld für alle Release-Konfigurationen; jede Datei wird ihrer Architektur automatisch zugeordnet."""
     st.markdown("**Release-Konfigurationen**")
     dateien = st.file_uploader(
@@ -152,7 +159,7 @@ def bereich_konfigurationen(konfigs: dict[str, ReleaseKonfig]) -> None:
         accept_multiple_files=True,
         key="upload_konfigs",
         help="Die Architektur (G20i2, MB.OS_0.7, MB.OS1.0) wird aus Dateiname und Inhalt erkannt. Eine neue Datei "
-        "ersetzt die bisherige dieser Architektur. Große Dateien brauchen beim ersten Einlesen bis zu 15 Sekunden.",
+        "ersetzt die bisherige dieser Architektur. Große Dateien brauchen beim ersten Einlesen wenige Sekunden.",
     )
     meldungen: dict[str, tuple[str, str]] = st.session_state.setdefault("konfig_meldungen", {})
     offen: dict[str, tuple[str, bytes]] = st.session_state.setdefault("konfig_offen", {})
@@ -206,19 +213,18 @@ def bereich_konfigurationen(konfigs: dict[str, ReleaseKonfig]) -> None:
             konfig_status(arch, konfigs.get(arch))
 
 
-def konfig_status(arch: str, konfig: ReleaseKonfig | None) -> None:
+def konfig_status(arch: str, konfig: speicher.KonfigInfo | None) -> None:
     with st.container(border=True):
         st.markdown(f"**{arch}**")
         if konfig is None:
             st.caption(":material/upload_file: Noch nicht geladen.")
             return
-        neuester = konfig.neuester_release()
         stand = " · ".join(f"{v}" for v in konfig.versionsstand.values()) or "–"
         st.caption(
             f":material/check_circle: {konfig.dateiname}  \n"
             f"Erkannt über: {konfig.architektur_quelle}  \n"
             f"Stand: {stand}  \n"
-            f"Neuester Release: {neuester.name if neuester else '–'} · {len(konfig.befuellte_releases())} Releases  \n"
+            f"Neuester Release: {konfig.neuester_release or '–'} · {konfig.anzahl_releases} Releases  \n"
             f"Hochgeladen: {konfig.hochgeladen.replace('T', ' ')[:16]}"
         )
         for h in konfig.hinweise:
@@ -249,7 +255,7 @@ def bereich_referenz() -> None:
         st.dataframe(pd.DataFrame(zeilen), hide_index=True, width="stretch")
 
 
-def bereich_struktur(konfigs: dict[str, ReleaseKonfig]) -> None:
+def bereich_struktur(konfigs: dict[str, speicher.KonfigInfo]) -> None:
     with st.expander("Erkannte Struktur der Release-Konfigurationen / Spalten zuordnen"):
         st.caption(
             "Das Tool erkennt Kopfzeile, Titelspalte und Release-Blöcke selbst. Passt etwas nicht, hier einmalig "
@@ -687,7 +693,7 @@ def main() -> None:
     if meldung := st.session_state.pop("meldung", None):
         st.success(meldung, icon=":material/check:")
 
-    konfigs = _konfigs()
+    konfigs = _infos()
     oben = st.columns([1, 1.7], gap="large")
     with oben[0]:
         kurztest_in = bereich_kurztest("Kurztest IN (vor dem Update)", "upload_kurztest", "Noch kein Kurztest geladen.")
@@ -707,7 +713,7 @@ def main() -> None:
 
 
 def ergebnis_bereich(
-    konfigs: dict[str, ReleaseKonfig],
+    konfigs: dict[str, speicher.KonfigInfo],
     kurztest: Kurztest | None,
     kurztest_in: Kurztest | None,
     kurztest_out: Kurztest | None,
@@ -738,7 +744,8 @@ def ergebnis_bereich(
         )
         return
 
-    indizes = {a: _index(a, k.datei_hash, k) for a, k in konfigs.items()}
+    vollstaendig = _konfigs(konfigs)
+    indizes = {a: _index(a, k.datei_hash, k) for a, k in vollstaendig.items()}
     st.divider()
     arch = bereich_architektur(kurztest, indizes)
     if not arch:
@@ -750,7 +757,21 @@ def ergebnis_bereich(
         if kt is None:
             return [], {}
         speicher_wahl = st.session_state["wahl"].setdefault(f"{art}:{kt.dateiname}", {})
-        return abgleich(kt, idx, speicher_wahl, ziel_linie), speicher_wahl
+        # Ergebnis je Eingabe merken: Filter, Suche und Zeilenauswahl lösen keinen neuen Abgleich aus
+        schluessel = (
+            art,
+            kt.dateiname,
+            kt.kopfdaten.get("Datum"),
+            idx.konfig.datei_hash,
+            tuple(sorted(speicher_wahl.items())),
+            ziel_linie,
+        )
+        merker = st.session_state.setdefault("abgleich_merker", {})
+        if schluessel not in merker:
+            if len(merker) > 8:  # Speicher begrenzen
+                merker.clear()
+            merker[schluessel] = abgleich(kt, idx, speicher_wahl, ziel_linie)
+        return merker[schluessel], speicher_wahl
 
     erg_in, wahl_in = auswerten(kurztest_in, "in")
     erg_out, wahl_out = auswerten(kurztest_out, "out")

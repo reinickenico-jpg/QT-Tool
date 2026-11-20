@@ -12,11 +12,10 @@ Alle Dateien werden **nur auf diesem Rechner** verarbeitet.
    in das Feld **Release-Konfigurationen** ziehen. Das Tool erkennt die Architektur selbst (Dateiname und Inhalt)
    und zeigt je Architektur eine Karte mit Dateiname, Stand (Datum/TR/Version), neuestem Release und
    Upload-Datum. Das muss nur einmal gemacht werden und dann wieder, wenn es eine neue Version gibt: Die neue
-   Datei ersetzt die alte. Große Dateien brauchen beim ersten Einlesen bis zu 15 Sekunden. Erkennt das Tool die
+   Datei ersetzt die alte. Große Dateien brauchen beim ersten Einlesen wenige Sekunden (G20i2 ca. 3 s). Erkennt das Tool die
    Architektur einer Datei nicht, fragt es nach.
-2. **Kurztest hineinziehen** – am besten die **`.vrx`**-Datei (aus DTS9 oder DOBT). Sie enthält dieselben Daten wie die
-   `.html`, wird aber in unter einer Sekunde gelesen (`.html`: ca. 10 Sekunden). Ein ZIP mit beiden Dateien
-   geht auch (dann wird die `.vrx` genommen).
+2. **Kurztest hineinziehen** – `.vrx` (aus DTS9 oder DOBT), die `.html` dazu oder ein ZIP mit beiden (dann wird die
+   `.vrx` genommen). Beide enthalten dieselben Daten und werden in unter einer Sekunde gelesen.
 3. **„Abgleich starten“** klicken. Das Tool erkennt die Fahrzeugarchitektur über die Sachnummern des Kurztests
    (bei Bedarf oben ändern). Verglichen wird nur mit der Release-Konfiguration dieser Architektur.
 4. **Ergebnis ansehen** – Zahlen oben anklicken zum Filtern, Zeile anklicken für die Detailansicht,

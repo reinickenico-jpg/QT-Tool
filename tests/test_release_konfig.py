@@ -155,3 +155,23 @@ def test_zwei_softwarezeilen_derselben_art_in_einer_variante():
     k = lese_release_konfig(puffer.getvalue(), "BEISPIEL_MB.OS_0.7.xlsx")
     assert [e.variante for e in k.eintraege] == ["DISPLAY FOND DEMO"]
     assert [t.snr for t in k.eintraege[0].sw] == ["A9990000002", "A9990000003", "A9990000004", "A9990000005"]
+
+
+def test_calamine_und_openpyxl_lesen_gleich(beispielordner, monkeypatch):
+    """Schneller Leser (python-calamine) und Rückfall (openpyxl) müssen dasselbe Ergebnis liefern."""
+    import builtins
+
+    pfad = beispielordner / "BEISPIEL_MB.OS1.0_TR90-05_V1.xlsx"
+    schnell = lese_release_konfig(pfad, pfad.name)
+    original_import = builtins.__import__
+
+    def ohne_calamine(name, *args, **kwargs):
+        if name == "python_calamine":
+            raise ImportError("für den Test gesperrt")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", ohne_calamine)
+    langsam = lese_release_konfig(pfad, pfad.name)
+    assert schnell.eintraege == langsam.eintraege
+    assert schnell.releases == langsam.releases
+    assert schnell.struktur == langsam.struktur

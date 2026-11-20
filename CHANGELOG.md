@@ -5,6 +5,17 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Schneller:**
+  - Release-Konfigurationen werden mit python-calamine gelesen – G20i2 ca. 3 s statt 9–14 s (Ergebnis identisch,
+    openpyxl bleibt als Rückfall).
+  - HTML-Kurztests (DTS9, bis 65 MB) in 0,5 s statt ca. 12 s: es werden nur die nötigen Tabellen zerlegt.
+  - Programmstart: Statuskarten lesen nur noch eine kleine Kurzinfo je Konfiguration; die vollständigen Daten
+    werden erst beim Abgleich geladen und dann im Speicher gehalten.
+  - Filter, Suche und Zeilenauswahl lösen keinen neuen Abgleich mehr aus.
+  - Windows-Programm ohne das ungenutzte Diagramm-Paket altair: kleiner, weniger Dateien für den Virenscanner
+    beim ersten Start. Der Selbsttest nach dem Bau prüft jetzt auch farbige Tabellen und das Excel-Lesen.
+
 ## [0.2.0] – 2026-11-20
 
 ### Behoben
