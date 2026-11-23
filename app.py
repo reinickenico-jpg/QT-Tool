@@ -809,7 +809,14 @@ def main() -> None:
         bereich_konfigurationen(konfigs)
 
     kurztest = kurztest_in or kurztest_out
-    signatur = "|".join([kurztest.dateiname if kurztest else "", *sorted(k.datei_hash[:12] for k in konfigs.values())])
+    # Signatur enthält IN und OUT: kommt OUT nach dem ersten Abgleich dazu, erscheint der Knopf erneut
+    signatur = "|".join(
+        [
+            kurztest_in.dateiname if kurztest_in else "",
+            kurztest_out.dateiname if kurztest_out else "",
+            *sorted(k.datei_hash[:12] for k in konfigs.values()),
+        ]
+    )
     with schritt_platz:
         schritte(kurztest is not None, bool(konfigs), st.session_state.get("abgleich_fuer") == signatur)
 
@@ -840,8 +847,15 @@ def ergebnis_bereich(
 
     if st.session_state.get("abgleich_fuer") != signatur:
         fehlend = [a for a in ARCHITEKTUREN if a not in konfigs]
-        if st.button("Abgleich starten", type="primary", icon=":material/play_arrow:", width="stretch"):
+        beide = kurztest_in is not None and kurztest_out is not None
+        if beide and st.session_state.get("abgleich_fuer"):
+            st.info(
+                "Kurztest OUT ist neu dazugekommen – jetzt IN und OUT abgleichen.", icon=":material/compare_arrows:"
+            )
+        titel = "Abgleich starten (IN + OUT, mit Vorher/Nachher)" if beide else "Abgleich starten"
+        if st.button(titel, type="primary", icon=":material/play_arrow:", width="stretch"):
             st.session_state["abgleich_fuer"] = signatur
+            st.session_state["zeige_vergleich"] = beide  # danach direkt den Reiter Vorher/Nachher öffnen
             st.rerun()
         if fehlend:
             st.caption(f"Noch nicht geladen: {', '.join(fehlend)} – nur nötig, wenn der Kurztest dazu gehört.")
@@ -879,7 +893,8 @@ def ergebnis_bereich(
     beide = kurztest_in is not None and kurztest_out is not None
 
     namen = ["Ergebnis"] + (["Vorher/Nachher"] if beide else []) + ["Export & Berichte"]
-    reiter = dict(zip(namen, st.tabs(namen)))
+    start = "Vorher/Nachher" if beide and st.session_state.pop("zeige_vergleich", False) else None
+    reiter = dict(zip(namen, st.tabs(namen, default=start)))
 
     with reiter["Ergebnis"]:
         ansicht = "in" if kurztest_out is None else "out"
