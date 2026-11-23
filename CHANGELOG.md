@@ -5,6 +5,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 
 ## [Unveröffentlicht]
 
+## [0.3.0] – 2026-11-23
+
 ### Geändert
 - **Neue, übersichtlichere Oberfläche:** Schrittanzeige (Kurztest → Release-Konfigurationen → Abgleich); Karte
   *Fahrzeug-Kurztests* mit IN und OUT nebeneinander samt Fahrzeugdaten (FiNAS, Baureihe, Datum, Anzahl
