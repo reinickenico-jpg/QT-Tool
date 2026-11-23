@@ -21,6 +21,7 @@ from qt_tool.abgleich import (
     Ergebnis,
     Index,
 )
+from qt_tool.fehlerspeicher import DtcAenderung, dtc_zeile, dtc_zusammenfassung
 from qt_tool.modell import Kurztest, Teil
 from qt_tool.vergleich import Aenderung
 
@@ -251,6 +252,42 @@ def excel_update_protokoll(aenderungen: list[Aenderung], idx: Index, vorher: Kur
         *[(f"OUT {k}", v) for k, v in nachher.kopfdaten.items()],
         ("Architektur", idx.konfig.architektur),
         ("Release-Konfiguration", idx.konfig.dateiname),
+    ]:
+        info.append(list(paar))
+    info.column_dimensions["A"].width = 24
+    info.column_dimensions["B"].width = 90
+    puffer = io.BytesIO()
+    wb.save(puffer)
+    return puffer.getvalue()
+
+
+def excel_fehlerspeicher(aenderungen: list[DtcAenderung], vorher: Kurztest | None, nachher: Kurztest | None) -> bytes:
+    """Fehlerspeicher-Abgleich IN/OUT als Excel (ein Fehlercode je Zeile)."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Fehlerspeicher"
+    spalten = list(dtc_zeile(aenderungen[0])) if aenderungen else ["Steuergerät", "Fehlercode"]
+    ws.append(spalten)
+    for a in aenderungen:
+        z = dtc_zeile(a)
+        ws.append([z[s] for s in spalten])
+    for c in range(1, len(spalten) + 1):
+        ws.cell(1, c).font = Font(bold=True)
+        ws.column_dimensions[get_column_letter(c)].width = 60 if spalten[c - 1] == "Beschreibung" else 20
+    for reihe in ws.iter_rows(min_row=2):
+        for zelle in reihe:
+            zelle.alignment = Alignment(wrap_text=True, vertical="top")
+    ws.freeze_panes = "C2"
+    ws.auto_filter.ref = ws.dimensions
+    info = wb.create_sheet("Info")
+    zahlen = dtc_zusammenfassung(aenderungen)
+    for paar in [
+        ("Fehlerspeicher-Abgleich", "Fehlercodes (DTCs) Kurztest IN gegen OUT"),
+        ("Erstellt", datetime.now().strftime("%d.%m.%Y %H:%M")),
+        ("QT-Tool-Version", __version__),
+        ("Kurztest IN", vorher.dateiname if vorher else "–"),
+        ("Kurztest OUT", nachher.dateiname if nachher else "–"),
+        *[(k, str(v)) for k, v in zahlen.items()],
     ]:
         info.append(list(paar))
     info.column_dimensions["A"].width = 24

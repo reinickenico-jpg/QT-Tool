@@ -155,6 +155,49 @@ class ReleaseKonfig:
         return cls(**daten)
 
 
+# Status-Byte eines Fehlercodes (ISO 14229): Bit 0 = Fehler jetzt aktiv, Bit 2 = ausstehend (pending),
+# Bit 3 = bestätigt/gespeichert
+DTC_BIT_AKTIV = 0x01
+DTC_BIT_AUSSTEHEND = 0x04
+DTC_BIT_GESPEICHERT = 0x08
+
+
+@dataclass
+class Fehlercode:
+    """Ein Fehlerspeichereintrag (DTC) eines Steuergeräts aus dem Kurztest."""
+
+    code: str  # SAE-Schreibweise, z. B. „C099911“ (Schlüssel für den Vergleich IN/OUT)
+    text: str = ""
+    status_byte: str = ""  # wie im Kurztest, z. B. „0C“ oder „0x0C“
+    haeufigkeit: str = ""  # Frequency Count
+    nummer: str = ""  # interne Nummer, falls vorhanden
+
+    @property
+    def status_wert(self) -> int | None:
+        roh = self.status_byte.strip().lower().removeprefix("0x")
+        try:
+            return int(roh, 16) if roh else None
+        except ValueError:
+            return None
+
+    @property
+    def aktiv(self) -> bool | None:
+        wert = self.status_wert
+        return None if wert is None else bool(wert & DTC_BIT_AKTIV)
+
+    @property
+    def status_text(self) -> str:
+        wert = self.status_wert
+        if wert is None:
+            return "unbekannt"
+        teile = ["aktiv" if wert & DTC_BIT_AKTIV else "nicht aktiv"]
+        if wert & DTC_BIT_GESPEICHERT:
+            teile.append("gespeichert")
+        if wert & DTC_BIT_AUSSTEHEND:
+            teile.append("ausstehend")
+        return ", ".join(teile)
+
+
 @dataclass
 class KurztestSG:
     """Ein Steuergerät, wie es im Fahrzeug-Kurztest steht."""
@@ -167,6 +210,7 @@ class KurztestSG:
     variante: str = ""
     status: str = ""
     fehler: list[str] = field(default_factory=list)
+    dtcs: list[Fehlercode] = field(default_factory=list)  # strukturiert, für den Fehlerspeicher-Abgleich
     weitere: dict[str, str] = field(default_factory=dict)  # alle übrigen erkannten Felder
     fundstelle: str = ""
 

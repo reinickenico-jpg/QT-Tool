@@ -29,11 +29,12 @@ import io
 import re
 import zipfile
 from datetime import datetime
+from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
 from xml.etree import ElementTree
 
-from qt_tool.modell import DATEN_SW, FL_SW, FUNKTIONS_SW, HW, Kurztest, KurztestSG, Teil
+from qt_tool.modell import DATEN_SW, FL_SW, FUNKTIONS_SW, HW, Fehlercode, Kurztest, KurztestSG, Teil
 from qt_tool.normalisieren import finde_snr, snr_schluessel, text, vergleichstext, version_schluessel
 
 # Beschriftungen (als Vergleichstext, siehe normalisieren.vergleichstext)
@@ -159,8 +160,25 @@ def _lese_vdx(wurzel: ElementTree.Element, hinweise: list[str]) -> tuple[dict[st
                 sg.fundstelle,
             )
         for dtc in _kinder(_kind(comp, "DTCList"), "DTC"):
-            nummer = _txt(dtc, "SAENumber") or _txt(dtc, "Number")
-            sg.fehler.append(f"{nummer} {_txt(dtc, 'Description')}".strip())
+            code = _txt(dtc, "SAENumber") or _txt(dtc, "Number")
+            haeufigkeit = next(
+                (
+                    _txt(r, "Value")
+                    for r in _kinder(_kind(dtc, "ExtendedDataRecords"), "ExtendedDataRecord")
+                    if _txt(r, "ShortName") == "Frequency_Count"
+                ),
+                "",
+            )
+            sg.dtcs.append(
+                Fehlercode(
+                    code=code,
+                    text=_txt(dtc, "Description"),
+                    status_byte=_txt(dtc, "StatusByte"),
+                    haeufigkeit=haeufigkeit,
+                    nummer=_txt(dtc, "Number"),
+                )
+            )
+            sg.fehler.append(f"{code} {_txt(dtc, 'Description')}".strip())
         sg.weitere = {k: v for k, v in sg.weitere.items() if v}
         steuergeraete.append(sg)
     if ohne_antwort:
@@ -292,6 +310,41 @@ def _relevante_ausschnitte(html: str) -> str:
     return "<html><body>" + "\n".join(teile) + "</body></html>"
 
 
+# DTC-Übersicht der DTS9/DOBT-HTML („Error Overview“): Tabelle je Ansicht (Baureihe/Powertrain) mit denselben DTCs
+_DTC_TABELLE_HTML = re.compile(r'id="tableError_(BR|PT)"')
+_DTC_ZEILE_HTML = re.compile(r'<tr class="filterTable"[^>]*>(.*?)</tr>', re.S | re.I)
+_ZELLE_HTML = re.compile(r"<td[^>]*>(.*?)</td>", re.S | re.I)
+_TAG_HTML = re.compile(r"<[^>]+>")
+# Spalten der DTC-Übersicht: ECU, DTC, Fault Symptom, milage first, milage last, freq. cnt, Status Byte, active …
+DTC_SPALTEN_HTML = {"ecu": 0, "code": 1, "text": 2, "haeufigkeit": 5, "status": 6}
+
+
+def _html_fehlercodes(html: str) -> dict[str, list[Fehlercode]]:
+    """Fehlercodes je Steuergerät aus der DTC-Übersicht der HTML. Nur eine Ansicht wird gelesen (Baureihe bevorzugt),
+    weil beide dieselben DTCs enthalten."""
+    tabellen = {m.group(1): m.start() for m in reversed(list(_DTC_TABELLE_HTML.finditer(html)))}
+    if not tabellen:
+        return {}
+    ansicht = "BR" if "BR" in tabellen else "PT"
+    start = tabellen[ansicht]
+    andere = [p for a, p in tabellen.items() if a != ansicht and p > start]
+    bereich = html[start : min(andere) if andere else len(html)]
+    ergebnis: dict[str, list[Fehlercode]] = {}
+    for zeile in _DTC_ZEILE_HTML.finditer(bereich):
+        zellen = [unescape(_TAG_HTML.sub("", z)).strip() for z in _ZELLE_HTML.findall(zeile.group(1))]
+        if len(zellen) <= max(DTC_SPALTEN_HTML.values()) or not zellen[DTC_SPALTEN_HTML["code"]]:
+            continue
+        ergebnis.setdefault(zellen[DTC_SPALTEN_HTML["ecu"]], []).append(
+            Fehlercode(
+                code=zellen[DTC_SPALTEN_HTML["code"]],
+                text=zellen[DTC_SPALTEN_HTML["text"]],
+                status_byte=zellen[DTC_SPALTEN_HTML["status"]],
+                haeufigkeit=zellen[DTC_SPALTEN_HTML["haeufigkeit"]],
+            )
+        )
+    return ergebnis
+
+
 def _lese_html(html: str, hinweise: list[str]) -> tuple[dict[str, str], list[KurztestSG]]:
     sammler = _Zeilensammler()
     sammler.feed(_relevante_ausschnitte(html))
@@ -328,6 +381,11 @@ def _lese_html(html: str, hinweise: list[str]) -> tuple[dict[str, str], list[Kur
         else:
             nur_kurzform.discard(name)
         steuergeraete.append(sg)
+    fehlercodes = _html_fehlercodes(html)
+    for sg in steuergeraete:
+        if sg.name in fehlercodes and not sg.dtcs:
+            sg.dtcs = fehlercodes[sg.name]
+            sg.fehler = sg.fehler or [f"{d.code} {d.text}".strip() for d in sg.dtcs]
     ohne_daten = [s for s in steuergeraete if not s.hw and not s.sw]
     if ohne_daten:
         steuergeraete = [s for s in steuergeraete if s.hw or s.sw]

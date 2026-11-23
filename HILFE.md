@@ -147,6 +147,28 @@ Das **Update-Protokoll** gibt es als HTML (druckbar als PDF) und als Excel. Stam
 **verschiedenen Fahrzeugen**, zeigt das Tool direkt unter den Kurztest-Feldern einen Fehler mit beiden VINs und wertet
 Vorher/Nachher nicht aus.
 
+## Fehlerspeicher-Abgleich (DTC)
+
+Unabhängig von den Release-Konfigurationen – es reicht, die Kurztests zu laden.
+
+1. Kurztest **IN** und **OUT** laden. In der Karte *Fahrzeug-Kurztests* erscheint der Knopf
+   **„Fehlerspeicher-Abgleich IN/OUT (DTC)“** (mit nur einem Kurztest: **„Fehlerspeicher anzeigen (DTC)“**).
+2. Oben stehen die Zahlen: **IN** und **OUT** (Fehlercodes je Kurztest), **Neu** (nur im OUT – nach dem Update
+   dazugekommen), **Weg** (nur im IN – gelöscht oder behoben), **Geblieben** (in beiden) und **Aktiv** (im OUT
+   gerade aktiv).
+3. Die Tabelle zeigt je Fehlercode Steuergerät, Code, Änderung, Beschreibung, Status und Häufigkeit in IN und OUT.
+   Vorauswahl: nur **Neu** und **Weg** – im Feld *Änderung* auch *Weiterhin vorhanden* wählen. Filter nach
+   Steuergerät und **Nur aktive**.
+4. **Fehlerspeicher als Excel** lädt alle Fehlercodes herunter (Blatt *Info* mit den Zahlen).
+
+**Status:** aus dem Status-Byte des Kurztests – **aktiv** = Fehler liegt gerade an (Bit 0), **gespeichert** =
+bestätigt im Fehlerspeicher (Bit 3), **ausstehend** = noch nicht bestätigt (Bit 2). *Status geändert = Ja* heißt:
+der Code steht in IN und OUT, aber z. B. vorher gespeichert und jetzt aktiv.
+
+Zugeordnet wird über den **Steuergerätenamen** im Kurztest und den **Fehlercode** (SAE-Schreibweise, z. B.
+`C099911`). `.vrx` und `.html` liefern dieselben Fehlercodes. Stammen IN und OUT von verschiedenen Fahrzeugen, wird
+nicht verglichen.
+
 ## Analysebericht je Fahrzeug
 
 Im Reiter **Export & Berichte** unter *Analysebericht je Fahrzeug* auf **Analysebericht (HTML)** klicken. Der Bericht enthält
