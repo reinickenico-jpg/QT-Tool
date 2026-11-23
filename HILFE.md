@@ -131,7 +131,9 @@ ersten 6; alle stehen in der Detailansicht (Tabelle mit Art, Partnummer, Patchle
 ## Vorher/Nachher: was wurde tatsächlich aktualisiert?
 
 1. Vor dem Flashen den Kurztest **IN** laden – das Tool zeigt, wo Updates möglich sind.
-2. Nach dem Flashen zusätzlich den Kurztest **OUT** in das zweite Feld ziehen.
+2. Nach dem Flashen zusätzlich den Kurztest **OUT** in das rechte Feld ziehen – auch wenn der Abgleich für IN
+   schon lief. Dann erscheint der Knopf **„Abgleich starten (IN + OUT, mit Vorher/Nachher)“**; nach dem Klick
+   öffnet sich direkt der Reiter **Vorher/Nachher**.
 3. Im Reiter **Ergebnis** umschalten, ob der Abgleich für IN oder OUT angezeigt wird (Vorgabe: OUT = Endstand).
 4. Der Reiter **Vorher/Nachher** zeigt je Steuergerät (Zuordnung über den Namen im Kurztest):
 

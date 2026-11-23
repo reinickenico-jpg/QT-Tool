@@ -14,6 +14,9 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
   (mindestens 8 Kalenderwochen näher) zu genau einer Variante passt. Sonst bleibt es „Unklar“ mit Auswahl.
 
 ### Behoben
+- **Kurztest OUT nach dem ersten Abgleich:** Wurde OUT erst nach dem Abgleich von IN geladen, gab es keinen Knopf
+  und keinen Hinweis – der Reiter Vorher/Nachher erschien unbemerkt weiter unten. Jetzt erscheint der Knopf
+  „Abgleich starten (IN + OUT, mit Vorher/Nachher)“ erneut, danach öffnet sich der Reiter Vorher/Nachher.
 - Datenpakete erscheinen nicht mehr in der Begründung unter „installierte Software passt nicht“ – sie stehen nur
   unter Hinweise.
 
