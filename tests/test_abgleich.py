@@ -239,3 +239,32 @@ def test_unbekannte_hw_mit_aehnlichem_stamm_ist_unklar(indizes):
     # gleicher Stamm, aber kein Namensbezug -> nicht in der Konfiguration
     fremd = KurztestSG("ESP_NEU", hw=[Teil("HW", "A9930100098")], sw=[])
     assert vergleiche_sg(fremd, indizes["MB.OS1.0"]).status == STATUS_OHNE
+
+
+def test_bootloader_abweichung_nur_hinweis(indizes):
+    """Fachvorgabe: Funktions-/Daten-SW exakt, nur Bootloader anders (z. B. DEV statt PROD) -> kein Konflikt."""
+    sg = KurztestSG(
+        "CIVIC_DEV",
+        hw=[Teil("HW", "A9930100001", "90/01.00")],
+        sw=[
+            Teil("Funktions SW", "A9930200031", "90/05.30"),
+            Teil("Daten SW", "A9930300031", "90/05.30"),
+            Teil("FL SW", "A9930400001", "90/01.99"),  # Bootloader mit anderem Stand
+        ],
+    )
+    e = vergleiche_sg(sg, indizes["MB.OS1.0"])
+    assert e.status == STATUS_AKTUELL
+    assert any(h.startswith("Bootloader weicht ab") for h in e.hinweise)
+
+
+def test_diagnosezugaenge_m_v_zusammengefasst_andere_nicht(indizes):
+    from qt_tool.modell import Kurztest
+
+    def sg(name):
+        return KurztestSG(
+            name, hw=[Teil("HW", "A9930700001", "90/01.00")], sw=[Teil("Funktions SW", "A9930800010", "90/01.00")]
+        )
+
+    kt = Kurztest("x.vrx", "vrx", steuergeraete=[sg("CIVIC174M"), sg("CIVIC174V"), sg("WMI174D"), sg("WMI174P")])
+    namen = [e.sg.name for e in abgleich(kt, indizes["MB.OS1.0"])]
+    assert namen == ["CIVIC174M / CIVIC174V", "WMI174D", "WMI174P"]

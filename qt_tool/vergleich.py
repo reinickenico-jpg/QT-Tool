@@ -61,11 +61,18 @@ def _bewertung(art: str, vorher: Ergebnis | None, nachher: Ergebnis | None) -> s
 
 def vergleiche_kurztests(vorher: list[Ergebnis], nachher: list[Ergebnis]) -> list[Aenderung]:
     """Ergebnisse von IN und OUT (gleiche Release-Konfiguration) je Steuergerät gegenüberstellen."""
-    alt = {e.sg.name: e for e in vorher}
-    neu = {e.sg.name: e for e in nachher}
+
+    def einzeln(ergebnisse: list[Ergebnis]) -> dict[str, Ergebnis]:  # auch zusammengefasste Namen einzeln
+        return {n: e for e in ergebnisse for n in (e.namen or [e.sg.name])}
+
+    alt, neu = einzeln(vorher), einzeln(nachher)
     aenderungen = []
+    gesehen: set[tuple[int, int]] = set()
     for name in list(alt) + [n for n in neu if n not in alt]:
         a, n = alt.get(name), neu.get(name)
+        if (id(a), id(n)) in gesehen:
+            continue
+        gesehen.add((id(a), id(n)))
         if a is None:
             art = NEU
         elif n is None:
@@ -80,7 +87,7 @@ def vergleiche_kurztests(vorher: list[Ergebnis], nachher: list[Ergebnis]) -> lis
         sw_neu = _satz(n.sg.sw) if n else set()
         aenderungen.append(
             Aenderung(
-                name=name,
+                name=(n or a).sg.name,
                 art=art,
                 vorher=a,
                 nachher=n,
