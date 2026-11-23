@@ -129,8 +129,8 @@ def bereich_kurztest(titel: str, schluessel: str, leer: str) -> Kurztest | None:
         type=["vrx", "html", "htm", "zip"],
         key=schluessel,
         label_visibility="collapsed",
-        help=".vrx oder .html aus DTS9/DOBT (dieselben Daten, jeweils in unter einer Sekunde gelesen) oder ein ZIP mit "
-        "beiden. Verarbeitung nur auf diesem Rechner.",
+        help=".vrx oder .html aus DTS9/DOBT (dieselben Daten, jeweils in unter einer Sekunde gelesen) oder ein ZIP "
+        "mit beiden. Verarbeitung nur auf diesem Rechner.",
     )
     if datei is None:
         st.caption(leer)
@@ -141,20 +141,48 @@ def bereich_kurztest(titel: str, schluessel: str, leer: str) -> Kurztest | None:
     except KurztestFehler as e:
         st.error(str(e), icon=":material/error:")
         return None
+    kopf = kurztest.kopfdaten
+    fahrzeug = kopf.get("FiNAS") or kopf.get("VIN") or kurztest.dateiname
+    st.markdown(
+        f":material/directions_car: **{fahrzeug}**" + (f" · BR {kopf['Baureihe']}" if kopf.get("Baureihe") else "")
+    )
     st.caption(
-        f"{len(kurztest.steuergeraete)} Steuergeräte mit HW-/SW-Daten ({kurztest.format.upper()})  \n"
-        + " · ".join(f"{k}: {v}" for k, v in kurztest.kopfdaten.items() if k != "Titel")
+        " · ".join(
+            x
+            for x in (
+                kopf.get("Datum", ""),
+                f"{len(kurztest.steuergeraete)} Steuergeräte",
+                kopf.get("Diagnosetool", ""),
+                kurztest.format.upper(),
+            )
+            if x
+        )
+        + (f"  \nVIN {kopf['VIN']}" if kopf.get("VIN") and kopf.get("FiNAS") else "")
     )
     for h in kurztest.hinweise:
-        st.warning(h, icon=":material/warning:")
+        st.caption(f":material/info: {h}")
     return kurztest
 
 
 def bereich_konfigurationen(konfigs: dict[str, speicher.KonfigInfo]) -> None:
     """Ein Feld für alle Release-Konfigurationen; jede Datei wird ihrer Architektur automatisch zugeordnet."""
-    st.markdown("**Release-Konfigurationen**")
+    spalten = st.columns(len(ARCHITEKTUREN))
+    for arch, spalte in zip(ARCHITEKTUREN, spalten):
+        with spalte:
+            konfig_status(arch, konfigs.get(arch))
+    vollstaendig = all(a in konfigs for a in ARCHITEKTUREN)
+    rahmen = (
+        st.expander("Neue Version einer Release-Konfiguration laden", icon=":material/upload_file:")
+        if vollstaendig
+        else st.container()
+    )
+    with rahmen:
+        _konfig_upload(konfigs)
+
+
+def _konfig_upload(konfigs: dict[str, speicher.KonfigInfo]) -> None:
     dateien = st.file_uploader(
-        "Release-Konfigurationen hineinziehen – alle drei auf einmal oder einzeln (.xlsx)",
+        "Excel-Dateien hineinziehen – alle drei auf einmal oder einzeln (.xlsx)",
         type=["xlsx", "xlsm", "xls"],
         accept_multiple_files=True,
         key="upload_konfigs",
@@ -186,8 +214,6 @@ def bereich_konfigurationen(konfigs: dict[str, speicher.KonfigInfo]) -> None:
         ergebnis, meldung = meldungen.get(h, ("", ""))
         if ergebnis == "fehler":
             st.error(meldung, icon=":material/error:")
-        elif ergebnis == "ok":
-            st.caption(f":material/check: {meldung}")
     for h, (name, inhalt) in list(offen.items()):
         if h not in im_feld:
             continue
@@ -207,28 +233,30 @@ def bereich_konfigurationen(konfigs: dict[str, speicher.KonfigInfo]) -> None:
             meldungen[h] = (ergebnis, meldung)
             offen.pop(h, None)
             st.rerun()
-    spalten = st.columns(len(ARCHITEKTUREN))
-    for arch, spalte in zip(ARCHITEKTUREN, spalten):
-        with spalte:
-            konfig_status(arch, konfigs.get(arch))
 
 
 def konfig_status(arch: str, konfig: speicher.KonfigInfo | None) -> None:
     with st.container(border=True):
-        st.markdown(f"**{arch}**")
         if konfig is None:
-            st.caption(":material/upload_file: Noch nicht geladen.")
+            st.markdown(f"**{arch}**")
+            st.badge("fehlt", color="gray", icon=":material/upload_file:")
             return
-        stand = " · ".join(f"{v}" for v in konfig.versionsstand.values()) or "–"
+        st.markdown(f"**{arch}**")
+        st.badge("geladen", color="green", icon=":material/check:")
+        stand = konfig.versionsstand
         st.caption(
-            f":material/check_circle: {konfig.dateiname}  \n"
-            f"Erkannt über: {konfig.architektur_quelle}  \n"
-            f"Stand: {stand}  \n"
-            f"Neuester Release: {konfig.neuester_release or '–'} · {konfig.anzahl_releases} Releases  \n"
-            f"Hochgeladen: {konfig.hochgeladen.replace('T', ' ')[:16]}"
+            f"{konfig.dateiname}  \n"
+            + " · ".join(x for x in (stand.get("TR", ""), stand.get("Version", ""), stand.get("Datum", "")) if x)
+            + f"  \nNeuester Release: {konfig.neuester_release or '–'}"
         )
-        for h in konfig.hinweise:
-            st.caption(f":material/info: {h}")
+        with st.popover("Details", icon=":material/info:", width="stretch"):
+            st.caption(
+                f"Erkannt über: {konfig.architektur_quelle}  \n"
+                f"{konfig.anzahl_releases} Releases · Blatt „{konfig.blatt}“  \n"
+                f"Hochgeladen: {konfig.hochgeladen.replace('T', ' ')[:16]}"
+            )
+            for h in konfig.hinweise:
+                st.caption(f":material/info: {h}")
 
 
 def bereich_referenz() -> None:
@@ -325,62 +353,79 @@ def _fahrzeug_pruefen(kurztest_in: Kurztest | None, kurztest_out: Kurztest | Non
     return False
 
 
-def bereich_architektur(kurztest: Kurztest, indizes: dict[str, Index]) -> str | None:
+def bereich_einstellungen(kurztest: Kurztest, indizes: dict[str, Index]) -> tuple[str | None, str | None]:
+    """Architektur und – nur bei MB.OS1.0 – Software-Linie; kompakt in einer Zeile."""
     erkannt, gruende = erkenne_architektur(kurztest, indizes)
     optionen = list(indizes)
-    c1, c2 = st.columns([1, 2])
-    with c1:
+    with st.container(border=True):
+        c1, c2, c3 = st.columns([1, 1.4, 1.2], vertical_alignment="bottom")
         vorgabe = optionen.index(erkannt) if erkannt in optionen else None
-        arch = st.selectbox(
+        arch = c1.selectbox(
             "Fahrzeugarchitektur",
             optionen,
             index=vorgabe,
             placeholder="Bitte auswählen",
             # Schlüssel enthält die geladenen Konfigurationen: kommt eine dazu, wird neu erkannt
             key=f"arch_{kurztest.dateiname}_" + "_".join(i.konfig.datei_hash[:8] for i in indizes.values()),
-            help="Automatisch erkannt über die Sachnummern des Kurztests; bei Bedarf hier ändern.",
+            help="Automatisch erkannt über die Sachnummern des Kurztests; bei Bedarf ändern.",
         )
-    with c2:
-        if erkannt:
-            st.markdown(f"**Erkannte Fahrzeugarchitektur:** {erkannt}")
-        else:
-            st.warning("Architektur nicht eindeutig erkannt – bitte links auswählen.", icon=":material/warning:")
-        if arch:
-            k = indizes[arch].konfig
-            st.markdown(f"**Verwendete Release-Konfiguration:** {k.dateiname}")
-            if erkannt and arch != erkannt:
-                st.caption(f":material/info: Manuell gewählt (erkannt wäre {erkannt}).")
-        with st.popover("Wie wurde erkannt?"):
-            st.markdown("\n".join(f"- {g}" for g in gruende))
-    return arch
+        ziel_linie = None
+        with c2:
+            if arch and indizes[arch].konfig.linien():
+                ziel_linie = _software_linie(indizes[arch])
+            else:
+                st.caption("Software-Linie: nur bei MB.OS1.0 (mehrere Linien parallel).")
+        with c3:
+            if not erkannt:
+                st.warning("Architektur nicht eindeutig – bitte wählen.", icon=":material/warning:")
+            elif arch and arch != erkannt:
+                st.caption(f":material/info: Manuell gewählt (erkannt: {erkannt})")
+            else:
+                st.caption(f":material/check: Erkannt: {erkannt}")
+            with st.popover("Wie wurde erkannt?", icon=":material/help:"):
+                st.markdown("\n".join(f"- {g}" for g in gruende))
+                if arch:
+                    st.caption(f"Verwendete Release-Konfiguration: {indizes[arch].konfig.dateiname}")
+    return arch, ziel_linie
 
 
-def bereich_linie(idx: Index) -> str | None:
-    """Auswahl der MB.OS-Linie (nur wenn die Konfiguration parallele Linien führt)."""
+LINIE_AUTOMATISCH = "Automatisch (empfohlen)"
+
+
+def _software_linie(idx: Index) -> str | None:
+    """MB.OS1.0 führt mehrere Software-Linien parallel (z. B. 2026-4.0, 2027-1.0). „Neuester Stand“ wird nur
+    innerhalb einer Linie bestimmt."""
     linien = idx.konfig.linien()
-    if not linien:
-        return None
-    automatisch = "Automatisch – Linie des installierten Stands"
     wahl = st.selectbox(
-        "MB.OS-Linie für „neuester kompatibler Stand“",
-        [automatisch, *linien[::-1]],
+        "Software-Linie (MB.OS1.0)",
+        [LINIE_AUTOMATISCH, *linien[::-1]],
+        format_func=lambda x: x if x == LINIE_AUTOMATISCH else f"{x}" + (" – neueste" if x == linien[-1] else ""),
         key=f"linie_{idx.konfig.datei_hash[:12]}",
-        help="Die Release-Konfiguration führt parallele Linien. Innerhalb einer Linie gilt: rechte Spalte = neuer. "
-        "Automatisch nimmt je Steuergerät die Linie, zu der der installierte Stand passt; neuere Linien mit "
-        "anderem Stand werden als Hinweis gezeigt. Eine feste Linie wählen, wenn auf diese Linie geflasht werden soll.",
+        help="Die MB.OS1.0-Konfiguration führt mehrere Software-Linien parallel (Zeile „MB.OS Release In Focus“). "
+        "Der neueste kompatible Stand wird nur innerhalb einer Linie bestimmt.\n\n"
+        "Automatisch: je Steuergerät die Linie, zu der der installierte Stand passt – neuere Linien erscheinen als "
+        "Hinweis.\n\nFeste Linie: wenn das Fahrzeug auf genau diese Linie geflasht werden soll; dann gilt deren "
+        "neuester Stand für alle Steuergeräte.",
     )
-    return None if wahl == automatisch else wahl
+    return None if wahl == LINIE_AUTOMATISCH else wahl
 
 
 def bereich_dashboard(ergebnisse: list[Ergebnis]) -> str | None:
     zahlen = zaehle(ergebnisse)
     mit_bezug = len(ergebnisse) - zahlen[STATUS_OHNE]
     spalten = st.columns(5)
-    spalten[0].metric("Steuergeräte mit Bezug", mit_bezug)
-    spalten[1].metric("Aktuellster kompatibler Stand", zahlen[STATUS_AKTUELL])
-    spalten[2].metric("Update verfügbar", zahlen[STATUS_UPDATE])
-    spalten[3].metric("Mögliche Kompatibilitätsprobleme", zahlen[STATUS_KONFLIKT])
-    spalten[4].metric("Nicht eindeutig zuordenbar", zahlen[STATUS_UNKLAR])
+    for spalte, (titel, wert, hilfe) in zip(
+        spalten,
+        [
+            ("Mit Bezug", mit_bezug, "Steuergeräte, die in der Release-Konfiguration vorkommen"),
+            (STATUS_AKTUELL, zahlen[STATUS_AKTUELL], STATUS_ERKLAERUNG[STATUS_AKTUELL]),
+            (STATUS_UPDATE, zahlen[STATUS_UPDATE], STATUS_ERKLAERUNG[STATUS_UPDATE]),
+            (STATUS_KONFLIKT, zahlen[STATUS_KONFLIKT], STATUS_ERKLAERUNG[STATUS_KONFLIKT]),
+            (STATUS_UNKLAR, zahlen[STATUS_UNKLAR], STATUS_ERKLAERUNG[STATUS_UNKLAR]),
+        ],
+    ):
+        with spalte, st.container(border=True):
+            st.metric(titel, wert, help=hilfe)
     st.caption(
         f"{zahlen[STATUS_OHNE]} weitere Steuergeräte des Kurztests kommen in der Release-Konfiguration nicht vor."
     )
@@ -457,15 +502,15 @@ def bereich_detail(erg: Ergebnis, idx: Index, position: int, wahl_speicher: dict
 
         if erg.kandidaten:
             st.markdown("**Mögliche Treffer** – bitte die passende Variante wählen:")
-            schluessel = sg_schluessel(position, sg)
+            schluessel = erg.schluessel or sg_schluessel(position, sg)
             wahl = st.selectbox("Variante", erg.kandidaten, key=f"wahl_{schluessel}", label_visibility="collapsed")
             if st.button("Variante übernehmen", type="primary", key=f"wahl_ok_{schluessel}"):
                 wahl_speicher[schluessel] = wahl
                 st.rerun()
-        elif sg_schluessel(position, sg) in wahl_speicher and st.button(
+        elif (erg.schluessel or sg_schluessel(position, sg)) in wahl_speicher and st.button(
             "Manuelle Variantenwahl zurücksetzen", key=f"wahl_weg_{position}"
         ):
-            wahl_speicher.pop(sg_schluessel(position, sg))
+            wahl_speicher.pop(erg.schluessel or sg_schluessel(position, sg))
             st.rerun()
 
         a, b = st.columns(2)
@@ -621,7 +666,7 @@ ERGEBNIS_ZELLE = {
 def bereich_vorher_nachher(
     aenderungen: list[Aenderung], idx: Index, kurztest_in: Kurztest, kurztest_out: Kurztest, ziel_linie: str | None
 ) -> None:
-    st.subheader("Vorher/Nachher – was wurde tatsächlich aktualisiert?")
+    st.markdown("##### Was wurde tatsächlich aktualisiert?")
     st.caption(f"IN: {kurztest_in.dateiname}  ·  OUT: {kurztest_out.dateiname}")
     z = zusammenfassung(aenderungen)
     sp = st.columns(5)
@@ -682,6 +727,21 @@ def seitenleiste() -> None:
                 st.markdown(text)
 
 
+def schritte(kurztest_da: bool, konfig_da: bool, gestartet: bool) -> None:
+    """Schrittanzeige: was ist erledigt, was fehlt noch."""
+    spalten = st.columns(3)
+    for spalte, (text, erledigt) in zip(
+        spalten,
+        [("1 · Kurztest laden", kurztest_da), ("2 · Release-Konfigurationen", konfig_da), ("3 · Abgleich", gestartet)],
+    ):
+        with spalte:
+            st.badge(
+                text,
+                color="green" if erledigt else "gray",
+                icon=":material/check_circle:" if erledigt else ":material/radio_button_unchecked:",
+            )
+
+
 def main() -> None:
     st.set_page_config(page_title="QT-Tool", page_icon=":material/fact_check:", layout="wide")
     st.session_state.setdefault("wahl", {})
@@ -691,23 +751,39 @@ def main() -> None:
         "Vergleicht die im Fahrzeug verbauten Hardware- und Softwarestände mit der passenden Release-Konfiguration."
     )
     if meldung := st.session_state.pop("meldung", None):
-        st.success(meldung, icon=":material/check:")
+        st.toast(meldung, icon=":material/check:")
 
     konfigs = _infos()
-    oben = st.columns([1, 1.7], gap="large")
-    with oben[0]:
-        kurztest_in = bereich_kurztest("Kurztest IN (vor dem Update)", "upload_kurztest", "Noch kein Kurztest geladen.")
-        kurztest_out = bereich_kurztest(
-            "Kurztest OUT (nach dem Update)",
-            "upload_kurztest_out",
-            "Optional: nach dem Flashen laden – dann zeigt das Tool, was tatsächlich aktualisiert wurde.",
-        )
+    schritt_platz = st.container()
+
+    with st.container(border=True):
+        st.markdown("##### :material/directions_car: Fahrzeug-Kurztests")
+        links, rechts = st.columns(2, gap="large")
+        with links:
+            kurztest_in = bereich_kurztest(
+                "Vor dem Update (IN)", "upload_kurztest", "Kurztest hineinziehen – .vrx, .html oder ZIP."
+            )
+        with rechts:
+            kurztest_out = bereich_kurztest(
+                "Nach dem Update (OUT) · optional",
+                "upload_kurztest_out",
+                "Nach dem Flashen laden – dann zeigt das Tool, was tatsächlich aktualisiert wurde.",
+            )
         anderes_fahrzeug = _fahrzeug_pruefen(kurztest_in, kurztest_out)
-    kurztest = kurztest_in or kurztest_out
-    with oben[1]:
+
+    with st.container(border=True):
+        st.markdown("##### :material/table_view: Release-Konfigurationen")
         bereich_konfigurationen(konfigs)
-    ergebnis_bereich(konfigs, kurztest, kurztest_in, kurztest_out, anderes_fahrzeug)
+
+    kurztest = kurztest_in or kurztest_out
+    signatur = "|".join([kurztest.dateiname if kurztest else "", *sorted(k.datei_hash[:12] for k in konfigs.values())])
+    with schritt_platz:
+        schritte(kurztest is not None, bool(konfigs), st.session_state.get("abgleich_fuer") == signatur)
+
+    ergebnis_bereich(konfigs, kurztest, kurztest_in, kurztest_out, anderes_fahrzeug, signatur)
+
     st.divider()
+    st.caption("Erweitert")
     bereich_referenz()  # selten gebraucht -> ans Seitenende
     bereich_struktur(konfigs)
 
@@ -718,40 +794,32 @@ def ergebnis_bereich(
     kurztest_in: Kurztest | None,
     kurztest_out: Kurztest | None,
     anderes_fahrzeug: bool,
+    signatur: str,
 ) -> None:
-    """Knopf „Abgleich starten“ und danach die Auswertung (Dashboard, Tabelle, Detail, Export, Vorher/Nachher)."""
+    """Knopf „Abgleich starten“ und danach die Auswertung in Reitern."""
     if kurztest is None or not konfigs:
         st.info(
-            "Nächster Schritt: " + ("Kurztest hineinziehen." if kurztest is None else "Release-Konfiguration laden."),
+            "Nächster Schritt: "
+            + ("Kurztest hineinziehen." if kurztest is None else "Release-Konfigurationen hineinziehen."),
             icon=":material/arrow_upward:",
         )
         return
 
-    signatur = "|".join([kurztest.dateiname, *sorted(k.datei_hash[:12] for k in konfigs.values())])
     if st.session_state.get("abgleich_fuer") != signatur:
         fehlend = [a for a in ARCHITEKTUREN if a not in konfigs]
-        st.divider()
-        if st.button("Abgleich starten", type="primary", icon=":material/play_arrow:"):
+        if st.button("Abgleich starten", type="primary", icon=":material/play_arrow:", width="stretch"):
             st.session_state["abgleich_fuer"] = signatur
             st.rerun()
-        st.caption(
-            "Kurztest und Release-Konfigurationen sind geladen."
-            + (
-                f" Noch nicht geladen: {', '.join(fehlend)} (nur nötig, wenn der Kurztest dazu gehört)."
-                if fehlend
-                else ""
-            )
-        )
+        if fehlend:
+            st.caption(f"Noch nicht geladen: {', '.join(fehlend)} – nur nötig, wenn der Kurztest dazu gehört.")
         return
 
     vollstaendig = _konfigs(konfigs)
     indizes = {a: _index(a, k.datei_hash, k) for a, k in vollstaendig.items()}
-    st.divider()
-    arch = bereich_architektur(kurztest, indizes)
+    arch, ziel_linie = bereich_einstellungen(kurztest, indizes)
     if not arch:
         return
     idx = indizes[arch]
-    ziel_linie = bereich_linie(idx)
 
     def auswerten(kt: Kurztest | None, art: str) -> tuple[list[Ergebnis], dict[str, str]]:
         if kt is None:
@@ -775,38 +843,51 @@ def ergebnis_bereich(
 
     erg_in, wahl_in = auswerten(kurztest_in, "in")
     erg_out, wahl_out = auswerten(kurztest_out, "out")
+    beide = kurztest_in is not None and kurztest_out is not None
 
-    ansicht = "in" if kurztest_out is None else "out"
-    if kurztest_in is not None and kurztest_out is not None:
-        auswahl_ansicht = st.segmented_control(
-            "Abgleich anzeigen für",
-            ["out", "in"],
-            default="out",
-            format_func=lambda a: "Kurztest OUT (nach dem Update)" if a == "out" else "Kurztest IN (vor dem Update)",
-            key="ansicht",
-        )
-        ansicht = auswahl_ansicht or "out"
-    kt_aktiv, ergebnisse, wahl_aktiv = (
-        (kurztest_out, erg_out, wahl_out) if ansicht == "out" else (kurztest_in, erg_in, wahl_in)
-    )
+    namen = ["Ergebnis"] + (["Vorher/Nachher"] if beide else []) + ["Export & Berichte"]
+    reiter = dict(zip(namen, st.tabs(namen)))
 
-    st.divider()
-    status = bereich_dashboard(ergebnisse)
-    auswahl = bereich_tabelle(ergebnisse, idx, status, ansicht)
-    if auswahl is not None:
-        bereich_detail(auswahl, idx, next(i for i, e in enumerate(ergebnisse) if e is auswahl), wahl_aktiv)
-    st.divider()
-    bereich_export(ergebnisse, idx, kt_aktiv, ziel_linie)
-    if kurztest_in is not None and kurztest_out is not None:
-        st.divider()
-        if anderes_fahrzeug:
-            st.error(
-                "**Vorher/Nachher nicht möglich:** Kurztest IN und OUT stammen von verschiedenen Fahrzeugen. "
-                "Bitte den passenden OUT-Kurztest laden.",
-                icon=":material/error:",
+    with reiter["Ergebnis"]:
+        ansicht = "in" if kurztest_out is None else "out"
+        if beide:
+            ansicht = (
+                st.segmented_control(
+                    "Abgleich anzeigen für",
+                    ["out", "in"],
+                    default="out",
+                    format_func=lambda a: "Nach dem Update (OUT)" if a == "out" else "Vor dem Update (IN)",
+                    key="ansicht",
+                )
+                or "out"
             )
-            return
-        bereich_vorher_nachher(vergleiche_kurztests(erg_in, erg_out), idx, kurztest_in, kurztest_out, ziel_linie)
+        kt_aktiv, ergebnisse, wahl_aktiv = (
+            (kurztest_out, erg_out, wahl_out) if ansicht == "out" else (kurztest_in, erg_in, wahl_in)
+        )
+        status = bereich_dashboard(ergebnisse)
+        auswahl = bereich_tabelle(ergebnisse, idx, status, ansicht)
+        if auswahl is not None:
+            bereich_detail(auswahl, idx, next(i for i, e in enumerate(ergebnisse) if e is auswahl), wahl_aktiv)
+
+    if beide:
+        with reiter["Vorher/Nachher"]:
+            if anderes_fahrzeug:
+                st.error(
+                    "**Vorher/Nachher nicht möglich:** Kurztest IN und OUT stammen von verschiedenen Fahrzeugen. "
+                    "Bitte den passenden OUT-Kurztest laden.",
+                    icon=":material/error:",
+                )
+            else:
+                bereich_vorher_nachher(
+                    vergleiche_kurztests(erg_in, erg_out), idx, kurztest_in, kurztest_out, ziel_linie
+                )
+
+    with reiter["Export & Berichte"]:
+        st.caption(
+            f"Grundlage: {'Nach dem Update (OUT)' if ansicht == 'out' else 'Vor dem Update (IN)'} – "
+            f"umschaltbar im Reiter „Ergebnis“."
+        )
+        bereich_export(ergebnisse, idx, kt_aktiv, ziel_linie)
 
 
 main()

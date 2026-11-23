@@ -8,18 +8,24 @@ Alle Dateien werden **nur auf diesem Rechner** verarbeitet.
 
 ## In 4 Schritten
 
-1. **Release-Konfigurationen laden** – alle Excel-Dateien (G20i2, MB.OS_0.7, MB.OS1.0) auf einmal oder einzeln
-   in das Feld **Release-Konfigurationen** ziehen. Das Tool erkennt die Architektur selbst (Dateiname und Inhalt)
-   und zeigt je Architektur eine Karte mit Dateiname, Stand (Datum/TR/Version), neuestem Release und
-   Upload-Datum. Das muss nur einmal gemacht werden und dann wieder, wenn es eine neue Version gibt: Die neue
-   Datei ersetzt die alte. Große Dateien brauchen beim ersten Einlesen wenige Sekunden (G20i2 ca. 3 s). Erkennt das Tool die
-   Architektur einer Datei nicht, fragt es nach.
-2. **Kurztest hineinziehen** – `.vrx` (aus DTS9 oder DOBT), die `.html` dazu oder ein ZIP mit beiden (dann wird die
-   `.vrx` genommen). Beide enthalten dieselben Daten und werden in unter einer Sekunde gelesen.
+Oben zeigt eine Schrittanzeige, was schon erledigt ist (grün) und was noch fehlt.
+
+1. **Kurztest hineinziehen** – Karte *Fahrzeug-Kurztests*, linkes Feld **Vor dem Update (IN)**: `.vrx` (aus DTS9
+   oder DOBT), die `.html` dazu oder ein ZIP mit beiden (dann wird die `.vrx` genommen). Darunter stehen FiNAS,
+   Baureihe, Datum und Anzahl der Steuergeräte. Das rechte Feld **Nach dem Update (OUT)** ist optional (siehe
+   *Vorher/Nachher*).
+2. **Release-Konfigurationen laden** – Karte *Release-Konfigurationen*: alle Excel-Dateien (G20i2, MB.OS_0.7,
+   MB.OS1.0) auf einmal oder einzeln hineinziehen. Das Tool erkennt die Architektur selbst (Dateiname und Inhalt)
+   und zeigt je Architektur eine Kachel mit Dateiname, Stand (TR/Version/Datum) und neuestem Release; unter
+   *Details* Upload-Datum und Anzahl Releases. Das muss nur einmal gemacht werden: Die Dateien bleiben gespeichert.
+   Sind alle drei geladen, ist das Upload-Feld eingeklappt – für eine neue Version **Neue Version einer
+   Release-Konfiguration laden** aufklappen; die neue Datei ersetzt die alte. Große Dateien brauchen beim ersten
+   Einlesen wenige Sekunden (G20i2 ca. 3 s). Erkennt das Tool die Architektur einer Datei nicht, fragt es nach.
 3. **„Abgleich starten“** klicken. Das Tool erkennt die Fahrzeugarchitektur über die Sachnummern des Kurztests
-   (bei Bedarf oben ändern). Verglichen wird nur mit der Release-Konfiguration dieser Architektur.
-4. **Ergebnis ansehen** – Zahlen oben anklicken zum Filtern, Zeile anklicken für die Detailansicht,
-   unten als Excel oder Bericht exportieren.
+   (bei Bedarf im Feld **Fahrzeugarchitektur** ändern; *Wie wurde erkannt?* zeigt die Gründe). Verglichen wird nur
+   mit der Release-Konfiguration dieser Architektur.
+4. **Ergebnis ansehen** – Reiter **Ergebnis**: Zahlen oben anklicken zum Filtern, Zeile anklicken für die
+   Detailansicht. Reiter **Export & Berichte**: Excel und Analysebericht.
 
 ## Was bedeutet der Status?
 
@@ -64,21 +70,31 @@ konnte (`??????????`), werden nicht verglichen und in der Detailansicht vermerkt
 **Welcher Release ist der neueste?** Der in der Release-Konfiguration am weitesten **rechts** stehende
 Release-Block mit Einträgen. Release-Spalten ohne Einträge werden ignoriert.
 
-## MB.OS-Linien (nur MB.OS1.0)
+## Software-Linie (nur MB.OS1.0)
 
-Die MB.OS1.0-Konfiguration führt **parallele Linien** (Zeile „MB.OS Release In Focus“, z. B. `2026-4.0`,
-`2027-1.0`, `2027-2.0`). Die Regel „rechts = neuer“ gilt dann **nur innerhalb einer Linie** – die rechteste
-Spalte einer anderen Linie kann sogar einen älteren Stand haben.
+Die MB.OS1.0-Konfiguration führt mehrere **Software-Linien parallel** (Zeile „MB.OS Release In Focus“, z. B.
+`2026-4.0`, `2027-1.0`, `2027-2.0`) – vergleichbar mit Versionsständen, die gleichzeitig gepflegt werden. Die Regel
+„rechts = neuer“ gilt dann **nur innerhalb einer Linie**; die rechteste Spalte einer anderen Linie kann sogar einen
+älteren Stand haben. Deshalb muss das Tool wissen, innerhalb welcher Linie es den „neuesten kompatiblen Stand“ sucht.
 
-- Oben erscheint das Auswahlfeld **MB.OS-Linie**. Vorgabe ist **Automatisch**: je Steuergerät die Linie, zu
-  der der installierte Stand passt. Status und „neueste kompatible Software“ gelten innerhalb dieser Linie.
-- Wer auf eine bestimmte Linie flashen will, wählt sie aus. Dann wird für alle Steuergeräte der neueste Stand
-  dieser Linie verwendet. Wird die Hardware dort nicht mehr geführt, ist der Status **Konflikt**; gehört der
-  installierte Stand zu einer neueren Linie, ist er **Unklar** (Rückschritt).
+Im Feld **Software-Linie (MB.OS1.0)** kannst du wählen:
+
+| Auswahl | Wann nehmen? | Was passiert? |
+|---|---|---|
+| **Automatisch (empfohlen)** | Normalfall | Je Steuergerät die Linie, zu der der installierte Stand passt. Status und „neueste kompatible Software“ gelten innerhalb dieser Linie; neuere Linien mit anderem Stand erscheinen als Hinweis. |
+| **eine bestimmte Linie** (z. B. `2027-2.0 – neueste`) | Das Fahrzeug soll auf genau diese Linie geflasht werden | Für alle Steuergeräte gilt der neueste Stand dieser Linie. Wird die Hardware dort nicht geführt → **Konflikt**; gehört der installierte Stand zu einer neueren Linie → **Unklar** (wäre ein Rückschritt). |
+
 - Neuere Linien mit anderem Stand stehen in der Spalte **Neuere Linie mit anderem Stand** und in der Bewertung.
 - Die Detailansicht zeigt die Tabelle **Neuester Stand je MB.OS-Linie** – mit Markierung der verwendeten Linie.
 
-G20i2 und MB.OS_0.7 haben keine Linien; dort erscheint das Auswahlfeld nicht.
+G20i2 und MB.OS_0.7 haben keine Linien; dort ist das Feld nicht auswählbar.
+
+## Bootloader und Diagnosezugänge
+
+- **Bootloader (FL-SW):** Weicht nur der Bootloader vom Release ab, ändert das den Status nicht – es erscheint der
+  Hinweis „Bootloader weicht ab (nicht bewertet)“. Bewertet werden Funktions- und Daten-Software.
+- **Diagnosezugänge M/V** (z. B. `CIVIC174M` und `CIVIC174V`): Haben beide identische Hardware und Software, stehen
+  sie als **eine Zeile** mit beiden Namen in der Tabelle. Unterscheiden sie sich, bleiben es zwei Zeilen.
 
 **Patchlevel:** die ganze Versionsangabe, z. B. `26/46.29` = Jahr 2026, KW 46, Build 29. Kurztest
 (`26/46/29`) und Release-Konfiguration (`26/46.29`) schreiben sie nur mit anderen Trennzeichen – das
@@ -107,8 +123,8 @@ Sachnummer verglichen (Hinweis in der Bewertung).
 
 1. Vor dem Flashen den Kurztest **IN** laden – das Tool zeigt, wo Updates möglich sind.
 2. Nach dem Flashen zusätzlich den Kurztest **OUT** in das zweite Feld ziehen.
-3. Oben umschalten, ob der Abgleich für IN oder OUT angezeigt wird (Vorgabe: OUT = Endstand).
-4. Unten erscheint **Vorher/Nachher**: je Steuergerät (Zuordnung über den Namen im Kurztest)
+3. Im Reiter **Ergebnis** umschalten, ob der Abgleich für IN oder OUT angezeigt wird (Vorgabe: OUT = Endstand).
+4. Der Reiter **Vorher/Nachher** zeigt je Steuergerät (Zuordnung über den Namen im Kurztest):
 
 | Spalte | Bedeutung |
 |---|---|
@@ -117,12 +133,12 @@ Sachnummer verglichen (Hinweis in der Bewertung).
 | Software vorher / nachher | nur die Teile, die sich geändert haben (alte und neue Sachnummer mit Patchlevel) |
 
 Das **Update-Protokoll** gibt es als HTML (druckbar als PDF) und als Excel. Stammen IN und OUT laut VIN/FiNAS von
-**verschiedenen Fahrzeugen**, zeigt das Tool direkt unter den Upload-Feldern einen Fehler mit beiden VINs und wertet
+**verschiedenen Fahrzeugen**, zeigt das Tool direkt unter den Kurztest-Feldern einen Fehler mit beiden VINs und wertet
 Vorher/Nachher nicht aus.
 
 ## Analysebericht je Fahrzeug
 
-Unten unter *Analysebericht je Fahrzeug* auf **Analysebericht (HTML)** klicken. Der Bericht enthält
+Im Reiter **Export & Berichte** unter *Analysebericht je Fahrzeug* auf **Analysebericht (HTML)** klicken. Der Bericht enthält
 Fahrzeugdaten, verwendete Release-Konfiguration und Linie, die Zusammenfassung, alle Steuergeräte mit
 **Handlungsbedarf** (Konflikt, Update, Unklar) samt Empfehlung und Begründung sowie die aktuellen Steuergeräte.
 
@@ -141,7 +157,7 @@ Das Tool zeigt das so an, statt einen Status zu erfinden.
 
 ## Wenn etwas nicht passt
 
-- **Release-Konfiguration wird nicht erkannt:** unter *Erkannte Struktur … / Spalten zuordnen*
+- **Release-Konfiguration wird nicht erkannt:** am Seitenende unter *Erkannte Struktur … / Spalten zuordnen*
   Tabellenblatt, Kopfzeile, Titelspalte oder Lage der Spalten im Release-Block einmalig vorgeben.
   Die Zuordnung wird je Architektur gespeichert.
 - **Kurztest wird nicht gelesen:** Unterstützt sind `.vrx` (VDX 3.x aus DTS9) und die `.html`-Ansicht dazu.

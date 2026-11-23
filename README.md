@@ -20,6 +20,8 @@ Bedienung: [`HILFE.md`](HILFE.md)
 - Abgleich je Steuergerät: Hardware → Variante → aktueller Release-Stand → letzter Release für die Hardware →
   neueste kompatible Software → Status **Aktuell / Update verfügbar / Konflikt / Unklar** mit Begründung und
   Fundstellen (Datei, Blatt, Release-Spalte, Zeile).
+- Übersichtliche Oberfläche: Schrittanzeige, Karten für Kurztests (IN/OUT nebeneinander) und Release-Konfigurationen
+  (Kachel je Architektur), Ergebnisse in Reitern.
 - Dashboard mit anklickbaren Zahlen, Suche, Filter, Detailansicht, manuelle Variantenwahl bei Mehrdeutigkeit.
 - Excel-Export: vollständig, nur Abweichungen, nur Updates, unklar/nicht kompatibel.
 - Kompakter Analysebericht je Fahrzeug als eigenständige HTML-Datei (im Browser als PDF druckbar).
@@ -32,7 +34,9 @@ Bedienung: [`HILFE.md`](HILFE.md)
 | Thema | Regel |
 |---|---|
 | Release-Reihenfolge | Spaltenposition in der Release-Konfiguration: rechts = neuer. Leere Release-Spalten zählen nicht. |
-| MB.OS-Linien (MB.OS1.0) | Spaltenreihenfolge gilt nur innerhalb einer Linie („MB.OS Release In Focus“). Vorgabe: Linie des installierten Stands je Steuergerät; Ziel-Linie wählbar; neuere Linien mit anderem Stand als Hinweis und Tabelle „je Linie“ |
+| MB.OS-Linien (MB.OS1.0) | Spaltenreihenfolge gilt nur innerhalb einer Linie („MB.OS Release In Focus“). Feld „Software-Linie (MB.OS1.0)“, Vorgabe *Automatisch*: Linie des installierten Stands je Steuergerät; Ziel-Linie wählbar; neuere Linien mit anderem Stand als Hinweis und Tabelle „je Linie“ |
+| Bootloader (FL-SW) | Abweichung nur als Hinweis, nicht bewertet |
+| Diagnosezugänge M/V | gleiche Namen bis auf Endung M/V mit identischer HW+SW → eine Zeile |
 | Patchlevel | ganze Versionsangabe `JJ/WW.BB` (Jahr/KW.Build); Trennzeichen egal |
 | Kompatibilität | nur, wenn die Hardware im selben Eintrag unter *HW* oder *HW altern.* steht |
 | Zusätzliche Informationen | Notizfeld je Release (neben dem Release-Namen), dem Steuergerät über Namen/E-Stand zugeordnet |
