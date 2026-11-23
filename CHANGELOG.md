@@ -5,6 +5,18 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 
 ## [Unveröffentlicht]
 
+### Geändert
+- **Software-Partnummer und Patchlevel stehen zusammen:** je Software eine Zeile „Partnummer · Patchlevel“ in der
+  Ergebnistabelle, im Vorher/Nachher und im Excel-Export; die Detailansicht zeigt die Software als Tabelle (Art,
+  Partnummer, Patchlevel). Die SW-Spalten stehen in der Tabelle jetzt direkt hinter Steuergerät und Hardware.
+- **Variante über den Patchlevel:** Führen mehrere Varianten dieselben Software-Sachnummern (z. B. Change Year
+  CY26-1 und CY27-1) und gibt es keinen exakten Treffer, entscheidet der Patchlevel, wenn er zeitlich klar
+  (mindestens 8 Kalenderwochen näher) zu genau einer Variante passt. Sonst bleibt es „Unklar“ mit Auswahl.
+
+### Behoben
+- Datenpakete erscheinen nicht mehr in der Begründung unter „installierte Software passt nicht“ – sie stehen nur
+  unter Hinweise.
+
 ## [0.3.0] – 2026-11-23
 
 ### Geändert

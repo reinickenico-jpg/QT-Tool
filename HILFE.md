@@ -60,8 +60,11 @@ konnte (`??????????`), werden nicht verglichen und in der Detailansicht vermerkt
    Hardware-Sachnummer unter *HW* oder *HW altern.* steht. Nur dann gilt die Software dieses Eintrags
    als kompatibel – andere Kompatibilität wird nie angenommen.
 2. **Variante bestimmen:** Dieselbe Hardware steht oft in mehreren Varianten (Märkte, Change Years).
-   Die Variante ist die, deren Software-Sachnummern zum Fahrzeug passen. Bleibt das mehrdeutig, zeigt
-   die Detailansicht die möglichen Treffer und du wählst die richtige Variante aus.
+   Die Variante ist die, deren Software-Sachnummern zum Fahrzeug passen. Stehen dieselben Sachnummern in
+   mehreren Varianten (z. B. CY26-1 und CY27-1, nur zu verschiedenen Zeiten), entscheidet der **Patchlevel**:
+   Liegt er zeitlich klar bei einer Variante (mindestens 8 Kalenderwochen näher als bei der anderen), wird sie
+   genommen – das steht dann unter *Bemerkung / Begründung*. Bleibt es mehrdeutig, zeigt die Detailansicht die
+   möglichen Treffer und du wählst die richtige Variante aus.
 3. **Aktueller Release-Stand:** Releases, in denen Hardware, alle installierten Software-Sachnummern
    **und** deren Patchlevel genau so vorkommen.
 4. **Letzter Stand für die Hardware / neueste kompatible Software:** der neueste Release, in dem die
@@ -106,14 +109,20 @@ Sachnummer verglichen (Hinweis in der Bewertung).
 
 ## Die Ergebnistabelle
 
+Software steht immer als **„Partnummer · Patchlevel“, eine Software je Zeile** – so sieht man, welches
+Patchlevel zu welcher Partnummer gehört. Hat ein Steuergerät mehr als 6 Software-Teile, zeigt die Tabelle die
+ersten 6; alle stehen in der Detailansicht (Tabelle mit Art, Partnummer, Patchlevel) und im Excel-Export.
+
 | Spalte | Inhalt |
 |---|---|
 | Steuergerät / Variante (Kurztest) | Name und Diagnose-Variante, wie sie im Kurztest stehen |
-| Installierte Software (E-Stand) | E-Stand des Releases, zu dem der installierte Stand passt |
+| HW-Partnummer (Fahrzeug) / HW-Version | verbaute Hardware laut Kurztest |
+| Installierte SW (Partnummer · Patchlevel) | Software laut Kurztest, eine je Zeile |
 | Zugehöriger Release-Stand | alle Releases mit genau diesem Stand (erster … letzter) |
-| Letzter Release für die verbaute HW | neuester Release, in dem diese Hardware noch geführt wird |
-| Neueste kompatible SW-Partnummer / Patchlevel | Software dieses Releases, passend zu den installierten Teilen |
-| Neuester kompatibler Release-Stand | gleich „Letzter Release für die verbaute HW“ – dort steht die neueste kompatible Software |
+| Neueste kompatible SW (Partnummer · Patchlevel) | Software des neuesten Releases für die verbaute HW, passend zu den installierten Teilen |
+| Neuester kompatibler Release-Stand | neuester Release, in dem diese Hardware noch geführt wird – dort steht die neueste kompatible Software |
+| Installierte Software (E-Stand) | E-Stand des Releases, zu dem der installierte Stand passt |
+| Letzter Release für die verbaute HW | gleich „Neuester kompatibler Release-Stand“ |
 | MB.OS-Linie | Linie, in der bewertet wurde (nur MB.OS1.0) |
 | Neuere Linie mit anderem Stand | neuere Linien, deren neuester Stand für diese Hardware anders ist (nur MB.OS1.0) |
 | Zusätzliche Informationen | Zeilen aus dem **Notizfeld** des Releases (oben neben dem Release-Namen), die dieses Steuergerät betreffen |
@@ -130,7 +139,7 @@ Sachnummer verglichen (Hinweis in der Bewertung).
 |---|---|
 | Änderung | **Aktualisiert** (Software/Patchlevel geändert), **Hardware getauscht**, **Unverändert**, **Neu im OUT**, **Fehlt im OUT** |
 | Ergebnis | **Ziel erreicht** (nachher neuester kompatibler Stand), **Noch nicht auf neuestem Stand**, **Update nicht durchgeführt** (Update war möglich, nichts geändert), **Prüfen** (nachher Konflikt/unklar) |
-| Software vorher / nachher | nur die Teile, die sich geändert haben (alte und neue Sachnummer mit Patchlevel) |
+| Software vorher / nachher | nur die Teile, die sich geändert haben – je Zeile „Partnummer · Patchlevel“ |
 
 Das **Update-Protokoll** gibt es als HTML (druckbar als PDF) und als Excel. Stammen IN und OUT laut VIN/FiNAS von
 **verschiedenen Fahrzeugen**, zeigt das Tool direkt unter den Kurztest-Feldern einen Fehler mit beiden VINs und wertet

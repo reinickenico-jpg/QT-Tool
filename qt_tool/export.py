@@ -27,26 +27,32 @@ from qt_tool.vergleich import Aenderung
 SPALTEN = [
     "Status",
     "Steuergerät",
-    "Variante (Kurztest)",
     "HW-Partnummer (Fahrzeug)",
+    "Installierte SW (Partnummer · Patchlevel)",
+    "Zugehöriger Release-Stand",
+    "Neueste kompatible SW (Partnummer · Patchlevel)",
+    "Neuester kompatibler Release-Stand",
+    "Update verfügbar",
+    "Bemerkung / Begründung",
+    "Variante (Kurztest)",
     "HW-Version",
     "Installierte Software (E-Stand)",
-    "Installierte SW-Partnummer",
-    "Aktuelles Patchlevel",
-    "Zugehöriger Release-Stand",
     "Letzter Release für die verbaute HW",
     "Neueste kompatible Software (E-Stand)",
-    "Neueste kompatible SW-Partnummer",
-    "Neuestes kompatibles Patchlevel",
-    "Neuester kompatibler Release-Stand",
     "MB.OS-Linie",
     "Neuere Linie mit anderem Stand",
-    "Update verfügbar",
     "Kompatibilität",
     "Variante (Release-Konfiguration)",
     "Zusätzliche Informationen",
     "Hinweise (Datenpakete)",
-    "Bemerkung / Begründung",
+]
+
+# Spalten mit einer Software je Zeile („Partnummer · Patchlevel“) – Tabellen zeigen sie mehrzeilig
+SW_SPALTEN = [
+    "Installierte SW (Partnummer · Patchlevel)",
+    "Neueste kompatible SW (Partnummer · Patchlevel)",
+    "Software vorher (Partnummer · Patchlevel)",
+    "Software nachher (Partnummer · Patchlevel)",
 ]
 
 # Füllfarben im Excel-Export (hell, mit dunkler Schrift lesbar)
@@ -70,6 +76,11 @@ def _liste(teile: list[Teil], feld: str) -> str:
     return "\n".join(getattr(t, feld) or "–" for t in teile)
 
 
+def sw_paare(teile: list[Teil]) -> str:
+    """Je Software-Teil eine Zeile „Partnummer · Patchlevel“ – so ist sichtbar, welches Patchlevel wozu gehört."""
+    return "\n".join(f"{t.snr} · {t.version or '–'}" for t in teile)
+
+
 def _spanne(namen: list[str]) -> str:
     if not namen:
         return ""
@@ -84,20 +95,18 @@ def zeile(erg: Ergebnis, idx: Index) -> dict[str, str]:
     bemerkung = "; ".join(erg.gruende)
     if erg.zuordnung:
         bemerkung += ("\n" if bemerkung else "") + erg.zuordnung
-    return {
+    werte = {
         "Status": erg.status,
         "Steuergerät": sg.name,
         "Variante (Kurztest)": sg.variante,
         "HW-Partnummer (Fahrzeug)": _liste(sg.hw, "snr"),
         "HW-Version": _liste(sg.hw, "version"),
         "Installierte Software (E-Stand)": erg.aktuell.e_stand if erg.aktuell else "",
-        "Installierte SW-Partnummer": _liste(sw, "snr"),
-        "Aktuelles Patchlevel": _liste(sw, "version"),
+        "Installierte SW (Partnummer · Patchlevel)": sw_paare(sw),
         "Zugehöriger Release-Stand": _spanne(erg.aktuell_releases),
         "Letzter Release für die verbaute HW": letzter_name,
         "Neueste kompatible Software (E-Stand)": letzter.e_stand if letzter else "",
-        "Neueste kompatible SW-Partnummer": _liste(erg.neueste_sw, "snr"),
-        "Neuestes kompatibles Patchlevel": _liste(erg.neueste_sw, "version"),
+        "Neueste kompatible SW (Partnummer · Patchlevel)": sw_paare(erg.neueste_sw),
         "Neuester kompatibler Release-Stand": letzter_name,
         "MB.OS-Linie": erg.linie,
         "Neuere Linie mit anderem Stand": "\n".join(
@@ -110,6 +119,7 @@ def zeile(erg: Ergebnis, idx: Index) -> dict[str, str]:
         "Hinweise (Datenpakete)": "\n".join(erg.hinweise),
         "Bemerkung / Begründung": bemerkung,
     }
+    return {spalte: werte[spalte] for spalte in SPALTEN}  # Reihenfolge wie in der Tabelle
 
 
 def excel_export(
@@ -203,10 +213,8 @@ def zeile_vergleich(a: Aenderung, idx: Index) -> dict[str, str]:
         "Status nachher": a.nachher.status if a.nachher else "–",
         "Stand vorher": _stand(a.vorher, idx),
         "Stand nachher": _stand(a.nachher, idx),
-        "Software vorher (ersetzt)": _liste(a.entfernt, "snr") if a.entfernt else "",
-        "Patchlevel vorher": _liste(a.entfernt, "version") if a.entfernt else "",
-        "Software nachher (neu)": _liste(a.hinzu, "snr") if a.hinzu else "",
-        "Patchlevel nachher": _liste(a.hinzu, "version") if a.hinzu else "",
+        "Software vorher (Partnummer · Patchlevel)": sw_paare(a.entfernt),
+        "Software nachher (Partnummer · Patchlevel)": sw_paare(a.hinzu),
         "Neuester kompatibler Stand": (
             f"{nachher.letzter_hw.e_stand} ({idx.release_name(nachher.letzter_hw)})"
             if nachher and nachher.letzter_hw
@@ -287,4 +295,4 @@ def filtere(
     return treffer
 
 
-__all__ = ["EXPORTE", "SPALTEN", "excel_export", "filtere", "zeile", "STATUS_UNKLAR"]
+__all__ = ["EXPORTE", "SPALTEN", "SW_SPALTEN", "sw_paare", "excel_export", "filtere", "zeile", "STATUS_UNKLAR"]
