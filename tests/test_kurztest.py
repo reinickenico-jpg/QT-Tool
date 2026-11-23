@@ -31,7 +31,7 @@ def test_vrx_ein_steuergeraet(kurztest):
     assert [(t.schluessel, t.version_norm) for t in civic.hw] == [("9930100001", "90/01.00")]
     assert [t.art for t in civic.sw] == [FL_SW, FUNKTIONS_SW, FUNKTIONS_SW, FUNKTIONS_SW]
     assert civic.sw[0].bezeichnung == "Bootloader"
-    assert civic.fehler == ["B1F9952 Device Key still available"]  # SAE-Nummer wie im HTML
+    assert civic.fehler == ["B1F9952 Beispiel: Device Key still available"]  # SAE-Nummer wie im HTML
 
 
 def test_nicht_auslesbare_sachnummer_wird_vermerkt(kurztest):

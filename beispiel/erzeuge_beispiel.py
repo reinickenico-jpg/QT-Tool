@@ -236,7 +236,7 @@ def _fahrzeug(arch: str, nach_update: bool = False) -> list[dict]:
                 (s(3, 31), "90/05/30", "2"),
                 (s(22, 13), "90/04/00", "2"),
             ],
-            dtc=[("B1F9952", "Device Key still available")],
+            dtc=[("B1F9952", "Beispiel: Device Key still available", "08")],
         ),
         # Update verfügbar: Stand TR90/01 installiert
         sg(
@@ -260,8 +260,20 @@ def _fahrzeug(arch: str, nach_update: bool = False) -> list[dict]:
         # Nicht in der Release-Konfiguration (Fahrwerk-Steuergerät)
         # Linien-Fall: Stand TR90/01 (Linie 2090-1.0) installiert
         sg("AUD223", "AUD223_Demo", (s(24, 1), "90/01/00"), [(s(25, 10), "90/01/00", "2")]),
-        sg("ESP214", "ESP214_Demo", ("0004440000", "88/01/00"), [("0004440100", "88/01/00", "2")]),
+        sg(
+            "ESP214",
+            "ESP214_Demo",
+            ("0004440000", "88/01/00"),
+            [("0004440100", "88/01/00", "2")],
+            dtc=[("C099911", "Beispiel: Raddrehzahlsensor unplausibel", "09")],
+        ),
     ]
+    # Fehlerspeicher OUT (erfunden): ESP214 gelöscht, DISP_C223 neu, CIVIC206 jetzt aktiv
+    dtc_out = {
+        "ESP214": [],
+        "DISP_C223": [("U1A0011", "Beispiel: Botschaft fehlt", "09")],
+        "CIVIC206": [("B1F9952", "Beispiel: Device Key still available", "09")],
+    }
     if nach_update:
         neu = {
             "DISP_C223": [(s(10, 1), "90/01/00", "1"), (s(8, 11), "90/02/01", "2"), (s(9, 11), "90/02/01", "2")],
@@ -270,6 +282,7 @@ def _fahrzeug(arch: str, nach_update: bool = False) -> list[dict]:
         }
         for g in fahrzeug:
             g["sw"] = neu.get(g["name"], g["sw"])
+            g["dtc"] = dtc_out.get(g["name"], g["dtc"])
     return fahrzeug
 
 
@@ -289,8 +302,9 @@ def erzeuge_kurztest_vrx(ziel: Path, arch: str = "MB.OS1.0", nach_update: bool =
             for n, v, k in g["sw"]
         )
         dtc = "".join(
-            f"<DTC><Number>{c[1:]}</Number><SAENumber>{c}</SAENumber><Description>{x(t)}</Description></DTC>"
-            for c, t in g["dtc"]
+            f"<DTC><Number>{c[1:]}</Number><SAENumber>{c}</SAENumber><Description>{x(t)}</Description>"
+            f"<StatusByte>{b}</StatusByte></DTC>"
+            for c, t, b in g["dtc"]
         )
         teile.append(
             f"<Component><ECUShortName>{g['name']}</ECUShortName>"
