@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
-from qt_tool.modell import Eintrag, Kurztest, KurztestSG, ReleaseKonfig, Teil, linie_sortierwert
+from qt_tool.modell import FL_SW, Eintrag, Kurztest, KurztestSG, ReleaseKonfig, Teil, linie_sortierwert
 from qt_tool.normalisieren import snr_schluessel, vergleichstext, version_schluessel, version_sortierwert
 
 STAMM_ZIFFERN = 7  # gleicher Sachnummern-Stamm = gleiche Steuergeräte-Familie (Hinweis)
@@ -140,6 +140,8 @@ class Ergebnis:
     je_linie: list[tuple[str, Eintrag]] = field(default_factory=list)  # neuester Eintrag mit dieser HW je Linie
     neuere_linien: list[tuple[str, Eintrag]] = field(default_factory=list)  # neuere Linien mit anderer Software
     hinweise: list[str] = field(default_factory=list)  # nur zur Information, beeinflussen den Status nicht
+    schluessel: str = ""  # Schlüssel für die manuelle Variantenwahl (Position im Kurztest)
+    namen: list[str] = field(default_factory=list)  # Namen im Kurztest (mehrere, wenn zusammengefasst)
     letzter_hw: Eintrag | None = None
     neueste_sw: list[Teil] = field(default_factory=list)
     update: bool | None = None
@@ -164,6 +166,7 @@ class _Vergleich:
     version_fehlt_fzg: int = 0  # Konfiguration nennt Patchlevel, Kurztest nicht
     version_fehlt_konfig: int = 0  # Konfiguration nennt kein Patchlevel -> nur Sachnummer verglichen
     lu_treffer: bool = False  # LU-SNR der Variante steht im Kurztest
+    bootloader_abweichend: list[Teil] = field(default_factory=list)  # nur Hinweis, kein Einfluss auf den Status
 
     @property
     def exakt(self) -> bool:
@@ -215,10 +218,40 @@ def abgleich(
     """Vergleicht alle Steuergeräte. ``wahl``: SG-Schlüssel -> vom Nutzer gewählte Variante.
     ``ziel_linie``: MB.OS-Linie für „neuester Stand“; ``None`` = je Steuergerät die Linie des installierten Stands."""
     wahl = wahl or {}
-    return [
-        vergleiche_sg(sg, idx, wahl.get(sg_schluessel(i, sg)), ziel_linie)
-        for i, sg in enumerate(kurztest.steuergeraete)
-    ]
+    ergebnisse = []
+    for i, sg in enumerate(kurztest.steuergeraete):
+        erg = vergleiche_sg(sg, idx, wahl.get(sg_schluessel(i, sg)), ziel_linie)
+        erg.schluessel, erg.namen = sg_schluessel(i, sg), [sg.name]
+        ergebnisse.append(erg)
+    return _gleiche_zusammenfassen(ergebnisse)
+
+
+# Diagnosezugänge desselben Geräts: Name gleich bis auf diese Endungen (z. B. CIVIC174M / CIVIC174V). Andere Paare
+# mit identischen Teilen (Sitz links/rechts, Ladeschale Fahrer/Beifahrer) sind echte, getrennte Geräte.
+ZUGANGS_ENDUNGEN = frozenset({"M", "V"})
+
+
+def _gleiche_zusammenfassen(ergebnisse: list[Ergebnis]) -> list[Ergebnis]:
+    """Diagnosezugänge desselben Geräts (Name bis auf Endung M/V gleich, identische HW und SW) zu einer Zeile
+    „CIVIC174M / CIVIC174V“ zusammenfassen (Fachvorgabe)."""
+    zusammen: dict[tuple, Ergebnis] = {}
+    ergebnis_liste = []
+    for erg in ergebnisse:
+        name = erg.sg.name
+        hw = tuple(sorted(t.schluessel for t in erg.sg.hw if t.schluessel))
+        sw = tuple(sorted((t.schluessel, t.version_norm) for t in erg.sg.sw if t.schluessel))
+        if not hw or len(name) < 2 or name[-1] not in ZUGANGS_ENDUNGEN:
+            ergebnis_liste.append(erg)
+            continue
+        schluessel = (name[:-1], hw, sw)
+        erster = zusammen.get(schluessel)
+        if erster is None:
+            zusammen[schluessel] = erg
+            ergebnis_liste.append(erg)
+            continue
+        erster.namen.append(name)
+        erster.sg = replace(erster.sg, name=" / ".join(sorted(erster.namen)))
+    return ergebnis_liste
 
 
 def sg_schluessel(position: int, sg: KurztestSG) -> str:
@@ -229,7 +262,7 @@ def vergleiche_sg(
     sg: KurztestSG, idx: Index, gewaehlte_variante: str | None = None, ziel_linie: str | None = None
 ) -> Ergebnis:
     erg = _vergleiche_sg(sg, idx, gewaehlte_variante, ziel_linie)
-    erg.hinweise = _datenpaket_hinweise(sg, idx)
+    erg.hinweise = erg.hinweise + _datenpaket_hinweise(sg, idx)
     return erg
 
 
@@ -320,8 +353,18 @@ def _vergleiche(
     bekannt = idx.sw_der_variante[e.variante_id]
     relevant = [t for t in sw_teile if t.schluessel in bekannt]
     im_eintrag = {t.schluessel: t for t in e.sw if t.schluessel}
-    snr_gleich = [t for t in relevant if t.schluessel in im_eintrag]
-    v = _Vergleich(nr, hw_teil, len(relevant), len(snr_gleich), 0)
+    # Bootloader (FL SW) bestimmt den Status nicht (Fachvorgabe): DEV-Geräte haben oft einen DEV-Bootloader, die
+    # Konfiguration nennt den PROD-Bootloader. Eine Abweichung wird nur als Hinweis gemeldet.
+    bootloader = [t for t in relevant if t.art == FL_SW]
+    basis = [t for t in relevant if t.art != FL_SW] or relevant
+    snr_gleich = [t for t in basis if t.schluessel in im_eintrag]
+    v = _Vergleich(nr, hw_teil, len(basis), len(snr_gleich), 0)
+    v.bootloader_abweichend = [
+        t
+        for t in bootloader
+        if basis is not relevant
+        and (t.schluessel not in im_eintrag or im_eintrag[t.schluessel].version_norm not in (None, t.version_norm))
+    ]
     for t in snr_gleich:
         konfig, fzg = im_eintrag[t.schluessel].version_norm, t.version_norm
         if konfig is None:
@@ -431,6 +474,15 @@ def _bewerte_variante(
     relevant = [t for t in sw_teile if t.schluessel in idx.sw_der_variante[variante]]
     fremd = [t for t in sw_teile if t.schluessel not in idx.sw_der_variante[variante] and t.schluessel in idx.sw]
 
+    if exakte and exakte[-1].bootloader_abweichend:
+        fl_konfig = [t for t in idx.eintrag(exakte[-1].eintrag_nr).sw if t.art == FL_SW]
+        erg.hinweise.append(
+            "Bootloader weicht ab (nicht bewertet): Fahrzeug "
+            + ", ".join(f"{t.snr} ({t.version or '–'})" for t in exakte[-1].bootloader_abweichend)
+            + " – Konfiguration nennt "
+            + (", ".join(f"{t.snr} ({t.version or '–'})" for t in fl_konfig) or "keinen Bootloader")
+            + " (z. B. DEV- statt PROD-Bootloader)"
+        )
     if exakte:
         if exakte[-1].version_fehlt_konfig:
             erg.gruende.append("Patchlevel in der Release-Konfiguration nicht angegeben – Abgleich nur über Sachnummer")

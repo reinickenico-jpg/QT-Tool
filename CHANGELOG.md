@@ -6,6 +6,17 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 ## [Unveröffentlicht]
 
 ### Geändert
+- **Neue, übersichtlichere Oberfläche:** Schrittanzeige (Kurztest → Release-Konfigurationen → Abgleich); Karte
+  *Fahrzeug-Kurztests* mit IN und OUT nebeneinander samt Fahrzeugdaten (FiNAS, Baureihe, Datum, Anzahl
+  Steuergeräte); Karte *Release-Konfigurationen* mit einer Kachel je Architektur – sind alle drei geladen, klappt
+  das Upload-Feld ein. Einstellungen (Architektur, Software-Linie) in einer Zeile, Ergebnisse in Reitern
+  *Ergebnis*, *Vorher/Nachher*, *Export & Berichte*.
+- **„MB.OS-Linie“ heißt jetzt „Software-Linie (MB.OS1.0)“** mit Vorgabe *Automatisch (empfohlen)* und
+  Erklärung am Feld; erscheint nur bei MB.OS1.0.
+- **Bootloader-Abweichung nur noch Hinweis:** Weicht nur der Bootloader (FL-SW) vom Release ab, bleibt der Status
+  bei Funktions-/Daten-SW; der Hinweis „Bootloader weicht ab (nicht bewertet)“ steht in der Bewertung.
+- **Diagnosezugänge M/V zusammengefasst:** Einträge, deren Namen sich nur durch die Endung M bzw. V unterscheiden
+  und identische Hardware und Software haben, erscheinen als eine Zeile (beide Namen sichtbar).
 - **Schneller:**
   - Release-Konfigurationen werden mit python-calamine gelesen – G20i2 ca. 3 s statt 9–14 s (Ergebnis identisch,
     openpyxl bleibt als Rückfall).
