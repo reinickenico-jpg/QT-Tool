@@ -320,6 +320,12 @@ def _vergleiche_sg(sg: KurztestSG, idx: Index, gewaehlte_variante: str | None, z
         mehrdeutig = _wirklich_mehrdeutig(spitze, je_variante, idx)
         variante = spitze[0]
         zuordnung_zusatz = ""
+        if mehrdeutig and not beste[0]:
+            # Kein exakter Treffer: entscheidet der Patchlevel, wenn er eindeutig in die Zeit einer Variante fällt
+            naechste = _variante_ueber_patchlevel(mehrdeutig, je_variante, sw_teile, idx)
+            if naechste:
+                variante, zuordnung_zusatz = naechste
+                mehrdeutig = []
 
     if mehrdeutig:
         erg = Ergebnis(
@@ -396,6 +402,53 @@ def _neuester_hw_eintrag(vergleiche: list[_Vergleich], idx: Index) -> _Vergleich
 
 def _sw_satz(e: Eintrag) -> frozenset[tuple[str | None, str | None]]:
     return frozenset((t.schluessel, t.version_norm) for t in e.sw)
+
+
+# Patchlevel-Abstand in Kalenderwochen, ab dem eine Variante als klar näher gilt
+PATCHLEVEL_ABSTAND_WOCHEN = 8
+
+
+def _wochen(version: str | None) -> int | None:
+    wert = version_sortierwert(version)
+    return None if wert is None else wert[0] * 53 + wert[1]
+
+
+def _variante_ueber_patchlevel(
+    varianten: list[str], je_variante: dict[str, list[_Vergleich]], sw_teile: list[Teil], idx: Index
+) -> tuple[str, str] | None:
+    """Mehrere Varianten führen dieselben Software-Sachnummern, aber zu verschiedenen Zeiten (z. B. Change Year
+    CY26-1 und CY27-1). Liegt der installierte Patchlevel zeitlich klar bei genau einer Variante, wird diese
+    genommen – sonst ``None`` (bleibt „Unklar“ mit manueller Auswahl)."""
+    installiert = {t.schluessel: _wochen(t.version_norm) for t in sw_teile if t.art != FL_SW}
+    installiert = {k: w for k, w in installiert.items() if w is not None}
+    if not installiert:
+        return None
+    abstand: dict[str, float] = {}
+    spanne: dict[str, str] = {}
+    for v in varianten:
+        werte = []
+        versionen = set()
+        for vg in je_variante[v]:
+            for t in idx.eintrag(vg.eintrag_nr).sw:
+                w = _wochen(t.version_norm)
+                if t.schluessel in installiert and w is not None:
+                    werte.append(abs(w - installiert[t.schluessel]))
+                    versionen.add(t.version_norm)
+        if not werte:
+            return None
+        abstand[v] = min(werte)
+        reihe = sorted(versionen, key=version_sortierwert)
+        spanne[v] = reihe[0] if len(reihe) == 1 else f"{reihe[0]} bis {reihe[-1]}"
+    rangliste = sorted(abstand, key=abstand.get)
+    erste, zweite = rangliste[0], rangliste[1]
+    if abstand[zweite] - abstand[erste] < PATCHLEVEL_ABSTAND_WOCHEN:
+        return None
+    patch = next(t.version for t in sw_teile if t.schluessel in installiert)
+    andere = "; ".join(f"{v.split(' › ')[-1]}: {spanne[v]}" for v in rangliste[1:])
+    return erste, (
+        f" Variante über den Patchlevel bestimmt: installiert {patch}, diese Variante führt die Software-Sachnummern "
+        f"mit {spanne[erste]} (andere: {andere})."
+    )
 
 
 def _wirklich_mehrdeutig(spitze: list[str], je_variante: dict[str, list[_Vergleich]], idx: Index) -> list[str]:
@@ -724,7 +777,8 @@ def _sw_text(teile: list[Teil]) -> str:
 def _begruendung(erg: Ergebnis, idx: Index) -> str:
     sg, letzter = erg.sg, erg.letzter_hw
     hw = erg.hw_konfig.snr if erg.hw_konfig else _hw_text(sg)
-    installiert = _sw_text([t for t in sg.sw if t.schluessel])
+    # Datenpakete (baureihenspezifisch) stehen nur unter Hinweise, nicht in der Begründung
+    installiert = _sw_text([t for t in sg.sw if t.schluessel and t.schluessel not in idx.datenpakete])
     neu_name = (idx.release_name(letzter) if letzter else "–") + (f", Linie {erg.linie}" if erg.linie else "")
     neu_sw = _sw_text(erg.neueste_sw)
     if erg.status == STATUS_AKTUELL:
