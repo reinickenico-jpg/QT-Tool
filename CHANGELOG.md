@@ -5,6 +5,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 
 ## [Unveröffentlicht]
 
+## [0.4.0] – 2026-11-23
+
 ### Geändert
 - **Software-Partnummer und Patchlevel stehen zusammen:** je Software eine Zeile „Partnummer · Patchlevel“ in der
   Ergebnistabelle, im Vorher/Nachher und im Excel-Export; die Detailansicht zeigt die Software als Tabelle (Art,
