@@ -30,7 +30,16 @@ from qt_tool.abgleich import (
     zaehle,
 )
 from qt_tool.bericht import erstelle_bericht, erstelle_update_protokoll
-from qt_tool.export import EXPORTE, SPALTEN, excel_export, excel_update_protokoll, filtere, zeile, zeile_vergleich
+from qt_tool.export import (
+    EXPORTE,
+    SPALTEN,
+    SW_SPALTEN,
+    excel_export,
+    excel_update_protokoll,
+    filtere,
+    zeile,
+    zeile_vergleich,
+)
 from qt_tool.kurztest import KurztestFehler, lese_kurztest
 from qt_tool.modell import ARCHITEKTUREN, Eintrag, Kurztest, ReleaseKonfig, Teil
 from qt_tool.release_konfig import StrukturFehler, Zuordnung, lese_release_konfig
@@ -108,6 +117,28 @@ def _wert(text: str) -> str:
 
 def _felder(paare: list[tuple[str, str]]) -> None:
     st.markdown("\n".join(f"- **{k}:** {_wert(v)}" for k, v in paare))
+
+
+# Höhe einer Textzeile in Tabellen (Pixel) und höchstens so viele Zeilen je Zelle sichtbar
+ZEILE_PX = 21
+MAX_ZEILEN_JE_ZELLE = 6
+
+
+def _zeilenhoehe(df: pd.DataFrame, spalten: list[str]) -> int:
+    """Zeilenhöhe, damit mehrzeilige Zellen (eine SW je Zeile) lesbar sind – höchstens MAX_ZEILEN_JE_ZELLE."""
+    zeilen = max((str(w).count("\n") + 1 for sp in spalten if sp in df for w in df[sp]), default=1)
+    return 14 + ZEILE_PX * min(zeilen, MAX_ZEILEN_JE_ZELLE)
+
+
+def _sw_tabelle(teile: list[Teil]) -> None:
+    """Software als kleine Tabelle: je Teil eine Zeile mit Art, Partnummer und Patchlevel."""
+    if not teile:
+        st.caption("Software: –")
+        return
+    st.markdown(
+        "| Software | Partnummer | Patchlevel |\n|---|---|---|\n"
+        + "\n".join(f"| {t.art} | {t.snr} | {t.version or '–'} |" for t in teile)
+    )
 
 
 def _teile(teile: list[Teil]) -> str:
@@ -466,13 +497,15 @@ def bereich_tabelle(ergebnisse: list[Ergebnis], idx: Index, status: str | None, 
         stil,
         hide_index=True,
         width="stretch",
-        height=min(560, 38 + 35 * len(df)),
+        height=min(620, 38 + (hoehe := _zeilenhoehe(df, SW_SPALTEN)) * len(df)),
+        row_height=hoehe,
         on_select="rerun",
         selection_mode="single-row",
         key=f"tabelle_{ansicht}",
         column_config={
             "Zusätzliche Informationen": st.column_config.TextColumn(width="large"),
             "Bemerkung / Begründung": st.column_config.TextColumn(width="large"),
+            **{sp: st.column_config.TextColumn(width="medium") for sp in SW_SPALTEN},
         },
     )
     zeilen = ereignis.selection.rows if ereignis and ereignis.selection else []
@@ -485,8 +518,7 @@ def _eintrag_felder(e: Eintrag | None, idx: Index, mit_hw: bool = False) -> list
     felder = [("Release", idx.release_name(e)), ("Variante", e.variante), ("E-Stand", e.e_stand)]
     if mit_hw:
         felder.append(("Hardware", _teile(e.hw)))
-    felder += [("Software", _teile(e.sw))]
-    return felder
+    return felder  # Software folgt als Tabelle (_sw_tabelle)
 
 
 def bereich_detail(erg: Ergebnis, idx: Index, position: int, wahl_speicher: dict[str, str]) -> None:
@@ -523,11 +555,10 @@ def bereich_detail(erg: Ergebnis, idx: Index, position: int, wahl_speicher: dict
                     ("Diagnoseadresse", sg.diag_adresse),
                     ("Hardware-Partnummer", hw.snr if hw else ""),
                     ("Hardware-Version", hw.version if hw else ""),
-                    ("Software-Partnummer", " / ".join(t.snr for t in sg.sw)),
-                    ("Software-Version / Patchlevel", " / ".join(t.version or "–" for t in sg.sw)),
                     ("Variante laut Kurztest", sg.variante),
                 ]
             )
+            _sw_tabelle(sg.sw)
         with b, st.container(border=True):
             st.markdown("**Gefundener Release-Stand**")
             if erg.aktuell:
@@ -538,9 +569,11 @@ def bereich_detail(erg: Ergebnis, idx: Index, position: int, wahl_speicher: dict
                         ("Freigabestatus", "kein eigenes Feld in der Release-Konfiguration (Test-Release)"),
                     ]
                 )
+                _sw_tabelle(erg.aktuell.sw)
             elif erg.naechster_treffer:
                 st.caption("Kein exakter Treffer – ähnlichster Eintrag:")
                 _felder(_eintrag_felder(erg.naechster_treffer, idx, mit_hw=True))
+                _sw_tabelle(erg.naechster_treffer.sw)
             else:
                 st.caption("Kein passender Release-Stand gefunden.")
         c, d = st.columns(2)
@@ -551,10 +584,9 @@ def bereich_detail(erg: Ergebnis, idx: Index, position: int, wahl_speicher: dict
                     [
                         ("Letzter kompatibler Release", idx.release_name(erg.letzter_hw)),
                         ("Hardware laut Konfiguration", erg.hw_konfig.kurz() if erg.hw_konfig else ""),
-                        ("Software-Partnummer", " / ".join(t.snr for t in erg.letzter_hw.sw)),
-                        ("Software-Version / Patchlevel", " / ".join(t.version or "–" for t in erg.letzter_hw.sw)),
                     ]
                 )
+                _sw_tabelle(erg.letzter_hw.sw)
             else:
                 st.caption("–")
         with d, st.container(border=True):
@@ -564,12 +596,12 @@ def bereich_detail(erg: Ergebnis, idx: Index, position: int, wahl_speicher: dict
                     [
                         ("Neuester kompatibler Release", idx.release_name(erg.letzter_hw)),
                         ("E-Stand", erg.letzter_hw.e_stand),
-                        ("Software (passend zu den installierten Teilen)", _teile(erg.neueste_sw)),
                         ("Update verfügbar", {True: "Ja", False: "Nein", None: "nicht feststellbar"}[erg.update]),
                         ("Kompatibilität", erg.kompatibilitaet),
                         ("Freigabestatus", "kein eigenes Feld in der Release-Konfiguration (Test-Release)"),
                     ]
                 )
+                _sw_tabelle(erg.neueste_sw)
             else:
                 st.caption("–")
 
@@ -684,7 +716,8 @@ def bereich_vorher_nachher(
     else:
         df = pd.DataFrame(zeilen)
         stil = df.style.map(lambda v: ERGEBNIS_ZELLE.get(v, ""), subset=["Ergebnis"])
-        st.dataframe(stil, hide_index=True, width="stretch", height=min(560, 38 + 35 * len(df)))
+        hoehe = _zeilenhoehe(df, SW_SPALTEN)
+        st.dataframe(stil, hide_index=True, width="stretch", height=min(620, 38 + hoehe * len(df)), row_height=hoehe)
     basis = kurztest_out.dateiname.rsplit(".", 1)[0]
     c1, c2, c3 = st.columns([1, 1, 2])
     c1.download_button(

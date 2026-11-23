@@ -35,6 +35,7 @@ Bedienung: [`HILFE.md`](HILFE.md)
 |---|---|
 | Release-Reihenfolge | Spaltenposition in der Release-Konfiguration: rechts = neuer. Leere Release-Spalten zählen nicht. |
 | MB.OS-Linien (MB.OS1.0) | Spaltenreihenfolge gilt nur innerhalb einer Linie („MB.OS Release In Focus“). Feld „Software-Linie (MB.OS1.0)“, Vorgabe *Automatisch*: Linie des installierten Stands je Steuergerät; Ziel-Linie wählbar; neuere Linien mit anderem Stand als Hinweis und Tabelle „je Linie“ |
+| Mehrdeutige Variante | gleiche SW-Sachnummern in mehreren Varianten → Patchlevel entscheidet, wenn er ≥ 8 KW näher an genau einer Variante liegt; sonst „Unklar“ mit Auswahl |
 | Bootloader (FL-SW) | Abweichung nur als Hinweis, nicht bewertet |
 | Diagnosezugänge M/V | gleiche Namen bis auf Endung M/V mit identischer HW+SW → eine Zeile |
 | Patchlevel | ganze Versionsangabe `JJ/WW.BB` (Jahr/KW.Build); Trennzeichen egal |

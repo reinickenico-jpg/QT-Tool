@@ -18,6 +18,9 @@ def test_tabellenzeile_hat_alle_spalten(kurztest, indizes):
     assert z["Neuester kompatibler Release-Stand"] == "TR90/03"  # neuester Stand in Linie 2090-1.0
     assert z["MB.OS-Linie"] == "2090-1.0"
     assert "2090-2.0" in z["Neuere Linie mit anderem Stand"]
+    # je Software eine Zeile „Partnummer · Patchlevel“ (Wunsch Fachbereich: sehen, was zusammengehört)
+    for zeile_sw in z["Installierte SW (Partnummer · Patchlevel)"].splitlines():
+        assert " · " in zeile_sw
 
 
 def test_excel_exporte(kurztest, indizes):

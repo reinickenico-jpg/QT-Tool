@@ -268,3 +268,44 @@ def test_diagnosezugaenge_m_v_zusammengefasst_andere_nicht(indizes):
     kt = Kurztest("x.vrx", "vrx", steuergeraete=[sg("CIVIC174M"), sg("CIVIC174V"), sg("WMI174D"), sg("WMI174P")])
     namen = [e.sg.name for e in abgleich(kt, indizes["MB.OS1.0"])]
     assert namen == ["CIVIC174M / CIVIC174V", "WMI174D", "WMI174P"]
+
+
+def _konfig_zwei_change_years():
+    """Erfunden: dieselbe HW und dieselben SW-Sachnummern in zwei Varianten, aber zu verschiedenen Zeiten."""
+    from qt_tool.abgleich import Index
+    from qt_tool.modell import Eintrag, Release, ReleaseKonfig
+
+    releases = [Release(i, f"TR90/{i:02d}", f"C{i}", befuellt=True) for i in range(4)]
+    hw = [Teil("HW", "A9935000001")]
+
+    def eintrag(variante, r, version, snr="A9935100001"):
+        return Eintrag("TESTSG", variante, r, 10, hw=hw, sw=[Teil("Funktions SW", snr, version)])
+
+    eintraege = [
+        eintrag("TESTSG CY90-1", 0, "90/03.09"),
+        eintrag("TESTSG CY90-1", 3, "90/04.21", "A9935100099"),  # später andere SW
+        eintrag("TESTSG CY91-1", 1, "90/30.10"),
+        eintrag("TESTSG CY91-1", 2, "90/34.14"),
+        eintrag("TESTSG CY91-1", 3, "90/45.73", "A9935100050"),
+    ]
+    konfig = ReleaseKonfig("G20i2", "BEISPIEL.xlsx", "Blatt", "", "hash", releases=releases, eintraege=eintraege)
+    return Index.baue(konfig)
+
+
+@pytest.mark.parametrize(
+    ("patchlevel", "erwartet"),
+    [("90/32/96", "TESTSG › TESTSG CY91-1"), ("90/16/00", None)],
+)
+def test_variante_ueber_patchlevel(patchlevel, erwartet):
+    """Gleiche Sachnummern in zwei Change Years: liegt der Patchlevel klar in der Zeit einer Variante, wird sie
+    genommen; liegt er ungefähr gleich weit entfernt, bleibt es „Unklar“ mit Auswahl."""
+    idx = _konfig_zwei_change_years()
+    sg = KurztestSG("TESTSG", hw=[Teil("HW", "A9935000001")], sw=[Teil("Funktions SW", "A9935100001", patchlevel)])
+    e = vergleiche_sg(sg, idx)
+    if erwartet:
+        assert e.variante_id == erwartet
+        assert "über den Patchlevel bestimmt" in e.zuordnung
+        assert e.status != STATUS_UNKLAR
+    else:
+        assert e.status == STATUS_UNKLAR
+        assert len(e.kandidaten) == 2
