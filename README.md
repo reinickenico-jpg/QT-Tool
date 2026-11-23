@@ -27,6 +27,8 @@ Bedienung: [`HILFE.md`](HILFE.md)
 - Kompakter Analysebericht je Fahrzeug als eigenständige HTML-Datei (im Browser als PDF druckbar).
 - Vorher/Nachher: Kurztest IN (vor dem Flashen) gegen OUT (danach) – was wurde tatsächlich aktualisiert, ist der
   neueste kompatible Stand erreicht; Update-Protokoll als HTML und Excel.
+- Fehlerspeicher-Abgleich (DTC) IN gegen OUT, unabhängig von den Release-Konfigurationen: neu, weg, geblieben,
+  Status (aktiv/gespeichert) und Häufigkeit; Excel-Export.
 - Baureihenspezifische Datenpakete (Abschnitte ohne Hardware) werden als Hinweis geführt, nicht bewertet.
 
 ## Fachliche Regeln (abgestimmt)
@@ -88,6 +90,7 @@ python -m pytest
 | `qt_tool/export.py` | Tabellenzeilen, Filter, Excel-Export |
 | `qt_tool/bericht.py` | Analysebericht und Update-Protokoll (HTML, druckbar als PDF) |
 | `qt_tool/vergleich.py` | Vorher/Nachher: Kurztest IN gegen OUT |
+| `qt_tool/fehlerspeicher.py` | Fehlerspeicher-Abgleich (DTC) IN gegen OUT |
 | `qt_tool/speicher.py` | lokale Ablage der Konfigurationen und Zuordnungen |
 | `app.py` | Oberfläche (Streamlit) – nur Anzeige, keine Logik |
 

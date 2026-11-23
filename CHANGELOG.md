@@ -5,6 +5,13 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 
 ## [Unveröffentlicht]
 
+### Neu
+- **Fehlerspeicher-Abgleich (DTC):** eigener Knopf in der Karte *Fahrzeug-Kurztests*, unabhängig von den
+  Release-Konfigurationen. Zeigt je Steuergerät, welche Fehlercodes im IN standen, welche im OUT neu sind, welche
+  weg sind und welche geblieben sind – mit Status aus dem Status-Byte (aktiv/gespeichert/ausstehend), Häufigkeit,
+  Filtern und Excel-Export. Mit nur einem Kurztest: Liste seiner Fehlercodes. Fehlercodes werden aus `.vrx` und
+  aus der DTC-Übersicht der `.html` gelesen (identisch).
+
 ## [0.4.0] – 2026-11-23
 
 ### Geändert

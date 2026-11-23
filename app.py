@@ -35,10 +35,21 @@ from qt_tool.export import (
     SPALTEN,
     SW_SPALTEN,
     excel_export,
+    excel_fehlerspeicher,
     excel_update_protokoll,
     filtere,
     zeile,
     zeile_vergleich,
+)
+from qt_tool.fehlerspeicher import (
+    DTC_ARTEN,
+    DTC_BLEIBT,
+    DTC_NEU,
+    DTC_WEG,
+    dtc_zeile,
+    dtc_zusammenfassung,
+    filtere_dtc,
+    vergleiche_fehlerspeicher,
 )
 from qt_tool.kurztest import KurztestFehler, lese_kurztest
 from qt_tool.modell import ARCHITEKTUREN, Eintrag, Kurztest, ReleaseKonfig, Teil
@@ -760,6 +771,95 @@ def seitenleiste() -> None:
                 st.markdown(text)
 
 
+def bereich_fehlerspeicher(kurztest_in: Kurztest | None, kurztest_out: Kurztest | None, anderes_fahrzeug: bool) -> None:
+    """Eigener Abgleich der Fehlerspeicher (DTCs) – unabhängig von den Release-Konfigurationen."""
+    if kurztest_in is None and kurztest_out is None:
+        return
+    beide = kurztest_in is not None and kurztest_out is not None
+    signatur = "|".join(kt.dateiname if kt else "" for kt in (kurztest_in, kurztest_out))
+    if st.session_state.get("dtc_fuer") != signatur:
+        titel = "Fehlerspeicher-Abgleich IN/OUT (DTC)" if beide else "Fehlerspeicher anzeigen (DTC)"
+        if st.button(titel, icon=":material/troubleshoot:", key="dtc_knopf"):
+            st.session_state["dtc_fuer"] = signatur
+            st.rerun()
+        return
+    st.divider()
+    kopf, zu = st.columns([5, 1], vertical_alignment="center")
+    kopf.markdown("##### :material/troubleshoot: Fehlerspeicher " + ("IN gegen OUT" if beide else "des Kurztests"))
+    if zu.button("Schließen", icon=":material/close:", key="dtc_zu", width="stretch"):
+        st.session_state.pop("dtc_fuer", None)
+        st.rerun()
+    if beide and anderes_fahrzeug:
+        st.error(
+            "Fehlerspeicher-Abgleich nicht möglich: IN und OUT stammen von verschiedenen Fahrzeugen.",
+            icon=":material/error:",
+        )
+        return
+    aenderungen = vergleiche_fehlerspeicher(kurztest_in, kurztest_out)
+    if not aenderungen:
+        st.success("Keine Fehlercodes im Kurztest" + (" IN und OUT." if beide else "."), icon=":material/check:")
+        return
+    zahlen = dtc_zusammenfassung(aenderungen)
+    if beide:
+        kacheln = [  # (kurzer Titel, Schlüssel der Zusammenfassung, Erklärung)
+            ("IN", "IN gesamt", "Fehlercodes im Kurztest vor dem Update"),
+            ("OUT", "OUT gesamt", "Fehlercodes im Kurztest nach dem Update"),
+            ("Neu", DTC_NEU, "nur im OUT – nach dem Update dazugekommen"),
+            ("Weg", DTC_WEG, "nur im IN – nach dem Update gelöscht oder behoben"),
+            ("Geblieben", DTC_BLEIBT, "in IN und OUT"),
+            ("Aktiv", "Aktiv im Endstand", "im OUT gerade aktiv (Status-Byte Bit 0)"),
+        ]
+    else:
+        kacheln = [
+            ("Fehlercodes", "IN gesamt" if kurztest_in else "OUT gesamt", "Fehlercodes im Kurztest"),
+            ("Aktiv", "Aktiv im Endstand", "gerade aktiv (Status-Byte Bit 0)"),
+        ]
+    for spalte, (titel, schluessel, hilfe) in zip(st.columns(len(kacheln)), kacheln):
+        with spalte, st.container(border=True):
+            st.metric(titel, zahlen[schluessel], help=hilfe)
+    c1, c2, c3 = st.columns([2, 2, 1], vertical_alignment="bottom")
+    arten = (
+        c1.multiselect("Änderung", list(DTC_ARTEN), default=[DTC_NEU, DTC_WEG], key="dtc_arten", placeholder="Alle")
+        if beide
+        else []
+    )
+    namen = sorted({a.steuergeraet for a in aenderungen})
+    sgs = c2.multiselect("Steuergerät", namen, key="dtc_sg", placeholder="Alle Steuergeräte")
+    nur_aktive = c3.toggle("Nur aktive", key="dtc_aktiv", help="Status-Byte Bit 0: Fehler liegt gerade an.")
+    sichtbar = filtere_dtc(aenderungen, arten, sgs, nur_aktive)
+    if not sichtbar:
+        st.info("Keine Fehlercodes für diese Auswahl.", icon=":material/search_off:")
+    else:
+        df = pd.DataFrame([dtc_zeile(a) for a in sichtbar])
+        if not beide:
+            seite = "IN" if kurztest_in else "OUT"
+            df = df.drop(
+                columns=[
+                    c
+                    for c in df.columns
+                    if c in ("Änderung", "Status geändert") or (c.endswith((" IN", " OUT")) and not c.endswith(seite))
+                ]
+            )
+        st.caption(f"{len(sichtbar)} von {len(aenderungen)} Fehlercodes")
+        st.dataframe(
+            df,
+            hide_index=True,
+            width="stretch",
+            height=min(520, 38 + 35 * len(df)),
+            column_config={"Beschreibung": st.column_config.TextColumn(width="large")},
+        )
+    basis = (kurztest_out or kurztest_in).dateiname.rsplit(".", 1)[0]
+    st.download_button(
+        "Fehlerspeicher als Excel",
+        data=lambda: excel_fehlerspeicher(aenderungen, kurztest_in, kurztest_out),
+        file_name=f"{basis}_Fehlerspeicher.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        icon=":material/download:",
+        on_click="ignore",
+        key="dtc_excel",
+    )
+
+
 def schritte(kurztest_da: bool, konfig_da: bool, gestartet: bool) -> None:
     """Schrittanzeige: was ist erledigt, was fehlt noch."""
     spalten = st.columns(3)
@@ -803,6 +903,7 @@ def main() -> None:
                 "Nach dem Flashen laden – dann zeigt das Tool, was tatsächlich aktualisiert wurde.",
             )
         anderes_fahrzeug = _fahrzeug_pruefen(kurztest_in, kurztest_out)
+        bereich_fehlerspeicher(kurztest_in, kurztest_out, anderes_fahrzeug)
 
     with st.container(border=True):
         st.markdown("##### :material/table_view: Release-Konfigurationen")
