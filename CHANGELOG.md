@@ -5,6 +5,8 @@ Versionierung nach [Semantic Versioning](https://semver.org/lang/de/) (Regeln f�
 
 ## [Unveröffentlicht]
 
+## [0.5.0] – 2026-11-23
+
 ### Neu
 - **Fehlerspeicher-Abgleich (DTC):** eigener Knopf in der Karte *Fahrzeug-Kurztests*, unabhängig von den
   Release-Konfigurationen. Zeigt je Steuergerät, welche Fehlercodes im IN standen, welche im OUT neu sind, welche
